@@ -1,0 +1,5 @@
+anthropic
+streamlit
+pdfplumber
+python-docx
+pandas
