@@ -8,8 +8,17 @@ from docx import Document
 
 st.set_page_config(page_title="CV Screener – Quest", page_icon="🔍", layout="wide")
 
-st.title("🔍 CV Screener")
-st.caption("Powered by Claude AI · Quest Alliance")
+# ── Header with logo ─────────────────────────────────────────────────────────
+
+col_title, col_logo = st.columns([4, 1])
+with col_title:
+    st.title("🔍 CV Screener")
+    st.caption("Powered by Claude AI · Quest Alliance")
+with col_logo:
+    st.image(
+        "https://questalliance.net/wp-content/uploads/2023/03/Quest-logo-new.png",
+        width=160,
+    )
 
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
@@ -22,7 +31,7 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
     return "\n".join(para.text for para in doc.paragraphs)
 
 
-def extract_cv_text(uploaded_file) -> str:
+def extract_file_text(uploaded_file) -> str:
     file_bytes = uploaded_file.read()
     name = uploaded_file.name.lower()
     if name.endswith(".pdf"):
@@ -74,7 +83,7 @@ def screen_cvs(jd: str, competencies: str, cvs: dict[str, str]):
     prompt = build_prompt(jd, competencies, cvs)
 
     result_placeholder = st.empty()
-    result_placeholder.info("Analysing CVs with Claude…")
+    result_placeholder.info("Analysing CVs with Claude… this may take up to a minute.")
 
     collected = []
     with client.messages.stream(
@@ -132,51 +141,54 @@ def render_results(raw_json: str):
                         st.markdown(f"- {g}")
 
 
-# ── Sidebar inputs ──────────────────────────────────────────────────────────
+# ── Sidebar: competencies only ───────────────────────────────────────────────
 
 with st.sidebar:
-    st.header("Role Details")
-
-    jd_mode = st.radio("Job Description", ["Paste text", "Upload file"], horizontal=True)
-
-    if jd_mode == "Paste text":
-        jd_input = st.text_area(
-            "JD text",
-            height=220,
-            placeholder="Paste the full job description here…",
-            label_visibility="collapsed",
-        )
-    else:
-        jd_file = st.file_uploader(
-            "Upload JD (PDF, DOCX, or TXT)",
-            type=["pdf", "docx", "doc", "txt"],
-            key="jd_file",
-        )
-        jd_input = ""
-        if jd_file:
-            try:
-                jd_input = extract_cv_text(jd_file)
-                st.success(f"Loaded: {jd_file.name}")
-            except Exception as e:
-                st.error(f"Could not read file: {e}")
-
+    st.header("Skill Competencies")
     competencies_input = st.text_area(
-        "Skill Competencies (optional)",
-        height=150,
-        placeholder="List the required skills and competencies, one per line or as a paragraph…",
+        "competencies",
+        height=300,
+        placeholder="List the required skills and competencies, one per line or as a paragraph… (optional)",
+        label_visibility="collapsed",
     )
 
 # ── Main area ────────────────────────────────────────────────────────────────
 
+st.subheader("Step 1 — Job Description")
+jd_mode = st.radio("How would you like to provide the JD?", ["Paste text", "Upload file (PDF / DOCX)"], horizontal=True)
+
+if jd_mode == "Paste text":
+    jd_input = st.text_area(
+        "jd_paste",
+        height=220,
+        placeholder="Paste the full job description here…",
+        label_visibility="collapsed",
+    )
+else:
+    jd_file = st.file_uploader(
+        "Upload the Job Description file",
+        type=["pdf", "docx", "doc", "txt"],
+        key="jd_file",
+    )
+    jd_input = ""
+    if jd_file:
+        try:
+            jd_input = extract_file_text(jd_file)
+            st.success(f"✅ Loaded: {jd_file.name}")
+        except Exception as e:
+            st.error(f"Could not read file: {e}")
+
+st.divider()
+st.subheader("Step 2 — Upload CVs")
 uploaded_files = st.file_uploader(
-    "Upload CVs (PDF, DOCX, or TXT)",
+    "Upload one or more CVs (PDF, DOCX, or TXT)",
     type=["pdf", "docx", "doc", "txt"],
     accept_multiple_files=True,
 )
-
 if uploaded_files:
-    st.caption(f"{len(uploaded_files)} file(s) uploaded: {', '.join(f.name for f in uploaded_files)}")
+    st.caption(f"{len(uploaded_files)} file(s) ready: {', '.join(f.name for f in uploaded_files)}")
 
+st.divider()
 screen_btn = st.button("🚀 Screen CVs", type="primary", disabled=not (jd_input and uploaded_files))
 
 if screen_btn:
@@ -187,7 +199,7 @@ if screen_btn:
         cvs: dict[str, str] = {}
         for f in uploaded_files:
             try:
-                cvs[f.name] = extract_cv_text(f)
+                cvs[f.name] = extract_file_text(f)
             except Exception as exc:
                 st.warning(f"Could not parse {f.name}: {exc}")
 
