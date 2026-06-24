@@ -2,10 +2,17 @@ import os
 import io
 import re
 import json
+from datetime import datetime
 import anthropic
 import streamlit as st
 import pdfplumber
 from docx import Document
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, Table, TableStyle
+from reportlab.lib.enums import TA_LEFT, TA_CENTER
 
 st.set_page_config(page_title="CV Screener – Quest", page_icon="🔍", layout="wide")
 
@@ -165,6 +172,147 @@ def screen_cvs(jd: str, competencies: str, cvs: dict[str, str]):
     return raw
 
 
+def generate_pdf_report(results: list, role_title: str = "") -> bytes:
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=A4,
+        leftMargin=20*mm, rightMargin=20*mm,
+        topMargin=20*mm, bottomMargin=20*mm,
+    )
+
+    QUEST_ORANGE = colors.HexColor("#F26522")
+    QUEST_DARK   = colors.HexColor("#1A1A2E")
+    GREEN        = colors.HexColor("#2E7D32")
+    RED          = colors.HexColor("#C62828")
+    LIGHT_GRAY   = colors.HexColor("#F5F5F5")
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("title", fontSize=22, textColor=QUEST_DARK,
+                                  spaceAfter=2*mm, fontName="Helvetica-Bold", alignment=TA_LEFT)
+    subtitle_style = ParagraphStyle("subtitle", fontSize=11, textColor=colors.gray,
+                                     spaceAfter=6*mm, fontName="Helvetica")
+    section_style = ParagraphStyle("section", fontSize=13, textColor=QUEST_ORANGE,
+                                    spaceBefore=6*mm, spaceAfter=2*mm, fontName="Helvetica-Bold")
+    name_style = ParagraphStyle("name", fontSize=12, textColor=QUEST_DARK,
+                                 fontName="Helvetica-Bold", spaceAfter=1*mm)
+    body_style = ParagraphStyle("body", fontSize=9, textColor=colors.HexColor("#333333"),
+                                 fontName="Helvetica", spaceAfter=2*mm, leading=13)
+    label_style = ParagraphStyle("label", fontSize=9, textColor=colors.gray,
+                                  fontName="Helvetica-Bold", spaceAfter=1*mm)
+
+    shortlisted = [r for r in results if r.get("shortlisted")]
+    not_shortlisted = [r for r in results if not r.get("shortlisted")]
+    date_str = datetime.now().strftime("%d %B %Y")
+
+    story = []
+
+    # Header
+    story.append(Paragraph("CV Screening Report", title_style))
+    role_line = f"Role: {role_title} &nbsp;·&nbsp; " if role_title else ""
+    story.append(Paragraph(f"{role_line}Generated: {date_str} &nbsp;·&nbsp; Quest Alliance", subtitle_style))
+    story.append(HRFlowable(width="100%", thickness=2, color=QUEST_ORANGE, spaceAfter=6*mm))
+
+    # Summary table
+    summary_data = [
+        ["Total CVs Screened", "Shortlisted", "Not Shortlisted"],
+        [str(len(results)), str(len(shortlisted)), str(len(not_shortlisted))],
+    ]
+    summary_table = Table(summary_data, colWidths=[55*mm, 55*mm, 55*mm])
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), QUEST_DARK),
+        ("TEXTCOLOR",  (0, 0), (-1, 0), colors.white),
+        ("BACKGROUND", (0, 1), (-1, 1), LIGHT_GRAY),
+        ("FONTNAME",   (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME",   (0, 1), (-1, 1), "Helvetica-Bold"),
+        ("FONTSIZE",   (0, 0), (-1, -1), 11),
+        ("ALIGN",      (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN",     (0, 0), (-1, -1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, 1), [LIGHT_GRAY]),
+        ("BOX",        (0, 0), (-1, -1), 0.5, colors.lightgrey),
+        ("INNERGRID",  (0, 0), (-1, -1), 0.5, colors.lightgrey),
+        ("TOPPADDING", (0, 0), (-1, -1), 4*mm),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4*mm),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 8*mm))
+
+    def candidate_block(r, shortlist=True):
+        status_color = GREEN if shortlist else RED
+        status_label = "SHORTLISTED" if shortlist else "NOT SHORTLISTED"
+        score = r.get("match_score", 0)
+
+        # Score bar row
+        bar_filled = int(score / 100 * 120)
+        bar_empty  = 120 - bar_filled
+        bar_data = [[
+            Paragraph(f'<font color="{status_color.hexval()}">{status_label}</font>',
+                      ParagraphStyle("st", fontSize=8, fontName="Helvetica-Bold")),
+            Paragraph(f'<b>{score}/100</b>',
+                      ParagraphStyle("sc", fontSize=10, fontName="Helvetica-Bold", alignment=TA_LEFT)),
+        ]]
+        bar_table = Table(bar_data, colWidths=[80*mm, 85*mm])
+        bar_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ]))
+
+        story.append(Paragraph(r.get("filename", ""), name_style))
+        story.append(bar_table)
+        story.append(Spacer(1, 2*mm))
+        story.append(Paragraph(r.get("reasoning", ""), body_style))
+
+        strengths = r.get("strengths", [])
+        gaps = r.get("gaps", [])
+        if strengths or gaps:
+            col_data = [[
+                Paragraph("Strengths", label_style),
+                Paragraph("Gaps / Concerns", label_style),
+            ], [
+                Paragraph("<br/>".join(f"• {s}" for s in strengths), body_style) if strengths else Paragraph("—", body_style),
+                Paragraph("<br/>".join(f"• {g}" for g in gaps), body_style) if gaps else Paragraph("—", body_style),
+            ]]
+            col_table = Table(col_data, colWidths=[82*mm, 82*mm])
+            col_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), LIGHT_GRAY),
+                ("VALIGN",     (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 3*mm),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 3*mm),
+                ("TOPPADDING", (0, 0), (-1, -1), 2*mm),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2*mm),
+                ("BOX",        (0, 0), (-1, -1), 0.5, colors.lightgrey),
+                ("INNERGRID",  (0, 0), (-1, -1), 0.5, colors.lightgrey),
+            ]))
+            story.append(col_table)
+
+        story.append(Spacer(1, 5*mm))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey, spaceAfter=4*mm))
+
+    if shortlisted:
+        story.append(Paragraph(f"✓ Shortlisted Candidates ({len(shortlisted)})", section_style))
+        story.append(HRFlowable(width="100%", thickness=1, color=GREEN, spaceAfter=4*mm))
+        for r in shortlisted:
+            candidate_block(r, shortlist=True)
+
+    if not_shortlisted:
+        story.append(Paragraph(f"✗ Not Shortlisted ({len(not_shortlisted)})", section_style))
+        story.append(HRFlowable(width="100%", thickness=1, color=RED, spaceAfter=4*mm))
+        for r in not_shortlisted:
+            candidate_block(r, shortlist=False)
+
+    # Footer note
+    story.append(Spacer(1, 4*mm))
+    story.append(Paragraph(
+        "This report was generated by Quest CV Screener powered by Claude AI. "
+        "Scores and assessments are AI-generated and should be used as a guide alongside human review.",
+        ParagraphStyle("footer", fontSize=8, textColor=colors.gray, fontName="Helvetica-Oblique"),
+    ))
+
+    doc.build(story)
+    return buf.getvalue()
+
+
 def render_results(raw_json: str):
     try:
         results = json.loads(raw_json)
@@ -205,11 +353,31 @@ def render_results(raw_json: str):
                     for g in r.get("gaps", []):
                         st.markdown(f"- {g}")
 
+    # PDF download
+    st.divider()
+    role_hint = st.session_state.get("role_title", "")
+    with st.spinner("Preparing PDF report…"):
+        pdf_bytes = generate_pdf_report(results, role_title=role_hint)
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    filename = f"CV_Screening_Report_{date_str}.pdf"
+    st.download_button(
+        label="📄 Download PDF Report",
+        data=pdf_bytes,
+        file_name=filename,
+        mime="application/pdf",
+        type="primary",
+    )
+
 
 # ── Sidebar: competencies ────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.header("Skill Competencies")
+    st.header("Role Details")
+    role_title = st.text_input("Role Title", placeholder="e.g. Placement Officer – Chennai")
+    if role_title:
+        st.session_state["role_title"] = role_title
+    st.divider()
+    st.subheader("Skill Competencies")
     competencies_input = st.text_area(
         "competencies",
         height=300,
