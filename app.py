@@ -363,10 +363,7 @@ weak        = [r for r in results_data if r.get("overall",0)<65 and not r.get("s
 header_right = ""
 if screen == "results":
     header_right = f'''
-      <button onclick="" style="display:flex;align-items:center;gap:7px;font:600 13px 'Work Sans';
-        color:#0075BC;background:#fff;border:1px solid #B8DCF0;border-radius:9px;padding:8px 14px;cursor:pointer">
-        ⤓ Export shortlist ({len(shortlisted)})
-      </button>'''
+      <button onclick="" style="display:flex;align-items:center;gap:7px;font:600 13px 'Work Sans';color:#0075BC;background:#fff;border:1px solid #B8DCF0;border-radius:9px;padding:8px 14px;cursor:pointer">⤓ Export shortlist ({len(shortlisted)})</button>'''
 
 st.markdown(f"""
 <div class="qs-header">
@@ -379,8 +376,7 @@ st.markdown(f"""
   </div>
   <div style="display:flex;align-items:center;gap:14px">
     {header_right}
-    <div style="width:32px;height:32px;border-radius:50%;background:#F7941D;color:#fff;
-      display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">TA</div>
+    <div style="width:32px;height:32px;border-radius:50%;background:#F7941D;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">TA</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
