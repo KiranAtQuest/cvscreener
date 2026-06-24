@@ -654,8 +654,10 @@ elif screen == "results":
 <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@500;700;800&display=swap" rel="stylesheet">
 <div style="padding:20px 36px 16px;background:#fff;border-bottom:1px solid #E4E9EF;font-family:'Work Sans',sans-serif;display:flex;align-items:flex-end;justify-content:space-between">
   <div>
-    <div style="font:500 13px 'Work Sans';color:#5E6675">{role_label}</div>
-    <div style="font:800 24px 'Work Sans';letter-spacing:-.02em;color:#1A1A2E;margin-top:4px">{len(results_data)} candidates screened &amp; ranked</div>
+    <div style="display:flex;align-items:center;gap:8px;font:500 13px 'Work Sans';color:#5E6675;margin-bottom:4px">
+      <span style="cursor:pointer">&#8592; {role_label}</span>
+    </div>
+    <div style="font:800 24px 'Work Sans';letter-spacing:-.02em;color:#1A1A2E">{len(results_data)} candidates screened, ranked</div>
   </div>
   <div style="display:flex;gap:10px">
     <div style="text-align:center;background:#E3F1FA;border-radius:11px;padding:9px 16px">
@@ -672,36 +674,40 @@ elif screen == "results":
     </div>
   </div>
 </div>
-""", height=95, scrolling=False)
+""", height=100, scrolling=False)
 
-    # Filter / search / sort bar
-    fc1, fc2, fc3, fc4, fc5, fc6 = st.columns([4, 1, 1, 1, 1, 2])
+    # Filter / search / sort bar — active filter rendered as "primary" button
+    filt = st.session_state.filter
+    fc1, fc2, fc3, fc4, fc5, fc6 = st.columns([4, 1, 1.2, 1.2, 1, 2])
     with fc1:
         search = st.text_input("search", placeholder="🔍  Search candidates…",
                                 label_visibility="collapsed", key="search_input")
     with fc2:
-        if st.button("All",      key="f_all",      type="secondary"): st.session_state.filter = "all"
+        if st.button("All",      key="f_all",      type="primary" if filt == "all"      else "secondary"):
+            st.session_state.filter = "all";      st.rerun()
     with fc3:
-        if st.button("Strong",   key="f_strong",   type="secondary"): st.session_state.filter = "strong"
+        if st.button("Strong",   key="f_strong",   type="primary" if filt == "strong"   else "secondary"):
+            st.session_state.filter = "strong";   st.rerun()
     with fc4:
-        if st.button("Possible", key="f_possible", type="secondary"): st.session_state.filter = "possible"
+        if st.button("Possible", key="f_possible", type="primary" if filt == "possible" else "secondary"):
+            st.session_state.filter = "possible"; st.rerun()
     with fc5:
-        if st.button("Weak",     key="f_weak",     type="secondary"): st.session_state.filter = "weak"
+        if st.button("Weak",     key="f_weak",     type="primary" if filt == "weak"     else "secondary"):
+            st.session_state.filter = "weak";     st.rerun()
     with fc6:
         sort = st.selectbox("sort", ["Best match", "Name A–Z", "Experience"],
                              label_visibility="collapsed", key="sort_sel")
 
     # Filter & sort
-    filt     = st.session_state.filter
     filtered = results_data
-    if filt == "strong":   filtered = strong_list
+    if filt == "strong":    filtered = strong_list
     elif filt == "possible": filtered = possible_list
-    elif filt == "weak":   filtered = weak_list
+    elif filt == "weak":    filtered = weak_list
     if search:
         filtered = [r for r in filtered if search.lower() in r.get("name","").lower()
                     or search.lower() in r.get("filename","").lower()]
-    if "Name" in sort:    filtered = sorted(filtered, key=lambda r: r.get("name",""))
-    elif "Exp" in sort:   filtered = sorted(filtered, key=lambda r: -r.get("years", 0))
+    if "Name" in sort:   filtered = sorted(filtered, key=lambda r: r.get("name",""))
+    elif "Exp" in sort:  filtered = sorted(filtered, key=lambda r: -r.get("years", 0))
 
     if not filtered:
         st.info("No candidates match these filters.")
@@ -713,34 +719,72 @@ elif screen == "results":
         av_color    = avatar_color(r.get("name", r.get("filename","")))
         name        = r.get("name", r.get("filename",""))
         inits       = initials(name)
-        tags        = r.get("strengths", [])[:2]
-        tags_html   = "".join(
-            f'<span style="background:#E3F1FA;color:#005A91;border-radius:6px;padding:4px 9px;font-weight:600;font-size:11px;white-space:nowrap">{t}</span>'
-            for t in tags)
+        strengths   = r.get("strengths", [])
+        tags        = strengths[:2]
+        extra_tags  = len(strengths) - 2
 
-        col_main, col_btn = st.columns([10, 1])
+        tags_html = "".join(
+            f'<span style="background:#E3F1FA;color:#005A91;border-radius:6px;padding:4px 9px;'
+            f'font-weight:600;font-size:11px;white-space:nowrap">{t}</span>'
+            for t in tags)
+        if extra_tags > 0:
+            tags_html += (f'<span style="background:#E4E9EF;color:#5E6675;border-radius:6px;'
+                          f'padding:4px 8px;font-weight:600;font-size:11px;white-space:nowrap">+{extra_tags}</span>')
+
+        # SVG donut score ring
+        r_px  = 22
+        circ  = 2 * 3.14159 * r_px
+        dash_offset = circ * (1 - sc / 100)
+        donut = (
+            f'<svg width="54" height="54" viewBox="0 0 54 54" '
+            f'style="position:absolute;top:0;left:0;transform:rotate(-90deg)">'
+            f'<circle cx="27" cy="27" r="{r_px}" fill="none" stroke="#E4E9EF" stroke-width="5"/>'
+            f'<circle cx="27" cy="27" r="{r_px}" fill="none" stroke="{ring_color}" stroke-width="5" '
+            f'stroke-dasharray="{circ:.1f}" stroke-dashoffset="{dash_offset:.1f}" stroke-linecap="round"/>'
+            f'</svg>'
+        )
+
+        col_main, col_actions = st.columns([9, 2])
         with col_main:
             components.html(f"""
 <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@500;700;800&display=swap" rel="stylesheet">
 <div style="display:flex;align-items:center;gap:16px;background:#fff;border:1px solid #E4E9EF;border-left:4px solid {ring_color};border-radius:12px;padding:14px 18px;font-family:'Work Sans',sans-serif">
-  <div style="font:800 15px 'Work Sans';color:#C2C8D2;width:20px;flex:none">{r.get('rank',i+1)}</div>
+  <div style="font:800 15px 'Work Sans';color:#C2C8D2;width:20px;text-align:center;flex:none">{r.get('rank',i+1)}</div>
   <div style="width:42px;height:42px;border-radius:50%;background:{av_color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:none">{inits}</div>
   <div style="flex:1;min-width:0">
-    <div style="font-weight:700;font-size:15px;color:#1A1A2E">{name}</div>
-    <div style="font:500 13px 'Work Sans';color:#5E6675">{r.get('role','')} &middot; {r.get('years','')} yrs &middot; {r.get('location','')}</div>
+    <div style="font-weight:700;font-size:15px;color:#1A1A2E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{name}</div>
+    <div style="font:500 12px 'Work Sans';color:#5E6675;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{r.get('role','')} &middot; {r.get('years','')} yrs &middot; {r.get('location','')}</div>
   </div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap">{tags_html}</div>
-  <div style="width:54px;height:54px;border-radius:50%;background:{ring_bg};display:flex;align-items:center;justify-content:center;flex:none">
-    <div style="width:42px;height:42px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:{ring_color}">{sc}</div>
+  <div style="display:flex;gap:5px;align-items:center;flex-shrink:0">{tags_html}</div>
+  <div style="position:relative;width:54px;height:54px;flex:none">
+    {donut}
+    <div style="position:absolute;top:0;left:0;width:54px;height:54px;display:flex;align-items:center;justify-content:center">
+      <span style="font-weight:800;font-size:15px;color:{ring_color};line-height:1">{sc}</span>
+    </div>
   </div>
 </div>
-""", height=74, scrolling=False)
-        with col_btn:
-            if st.button("View →", key=f"view_{i}", type="secondary"):
-                st.session_state.selected_idx = next(
-                    (j for j, x in enumerate(results_data) if x.get("rank") == r.get("rank")), i)
-                st.session_state.screen = "detail"
-                st.rerun()
+""", height=76, scrolling=False)
+
+        with col_actions:
+            a1, a2, a3 = st.columns(3)
+            with a1:
+                if st.button("→", key=f"view_{i}", help="View detail", type="secondary"):
+                    st.session_state.selected_idx = next(
+                        (j for j, x in enumerate(results_data) if x.get("rank") == r.get("rank")), i)
+                    st.session_state.screen = "detail"
+                    st.rerun()
+            with a2:
+                if st.button("★", key=f"sl_{i}", help="Shortlist", type="secondary"):
+                    results_data[next(
+                        (j for j, x in enumerate(results_data) if x.get("rank") == r.get("rank")), i
+                    )]["shortlisted"] = True
+                    st.rerun()
+            with a3:
+                if st.button("✕", key=f"rj_{i}", help="Reject", type="secondary"):
+                    results_data[next(
+                        (j for j, x in enumerate(results_data) if x.get("rank") == r.get("rank")), i
+                    )]["shortlisted"] = False
+                    st.rerun()
 
     st.divider()
     c1, c2, c3 = st.columns([2, 2, 4])
