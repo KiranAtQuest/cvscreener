@@ -132,7 +132,10 @@ def parse_bytes(b, name):
     if n.endswith((".docx", ".doc")): return extract_text_from_docx(b)
     return b.decode("utf-8", errors="replace")
 
-def extract_file_text(f): return parse_bytes(f.read(), f.name)
+def extract_file_text(f):
+    try: f.seek(0)
+    except: pass
+    return parse_bytes(f.read(), f.name)
 
 def initials(name):
     parts = name.split()
@@ -531,12 +534,19 @@ if screen == "setup":
                     uploaded = st.file_uploader("Drop CVs here", type=["pdf","docx","doc","txt"],
                                                  accept_multiple_files=True, label_visibility="visible")
                     if uploaded:
-                        with st.spinner("Reading…"):
-                            for f in uploaded:
-                                if f.name not in st.session_state.cvs:
-                                    try: st.session_state.cvs[f.name] = extract_file_text(f)
-                                    except: pass
-                        st.rerun()
+                        new_files = [f for f in uploaded if f.name not in st.session_state.cvs]
+                        if new_files:
+                            with st.spinner(f"Reading {len(new_files)} file(s)…"):
+                                errors = []
+                                for f in new_files:
+                                    try:
+                                        f.seek(0)
+                                        st.session_state.cvs[f.name] = extract_file_text(f)
+                                    except Exception as e:
+                                        errors.append(f"{f.name}: {e}")
+                            if errors:
+                                st.warning("Some files could not be read:\n" + "\n".join(errors))
+                            st.rerun()
                 with files_col:
                     names = list(st.session_state.cvs.keys())
                     if names:
