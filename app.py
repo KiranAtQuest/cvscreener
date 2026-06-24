@@ -202,6 +202,23 @@ Review each candidate carefully and return a JSON array sorted best-to-worst. Ea
 
 Return ONLY the JSON array, no markdown fences."""
 
+def extract_competencies(jd_text):
+    """Call Claude to pull 5 key skill competencies out of a JD."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY") or st.secrets.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return []
+    client = anthropic.Anthropic(api_key=api_key)
+    msg = client.messages.create(
+        model="claude-opus-4-8", max_tokens=300,
+        messages=[{"role": "user", "content":
+            f"Extract exactly 5 key skill competencies from this job description. "
+            f"Return ONLY a JSON array of 5 short strings (3-5 words each), nothing else.\n\n{jd_text}"}]
+    )
+    raw = msg.content[0].text.strip()
+    # strip markdown fences if present
+    raw = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("` \n")
+    return json.loads(raw)
+
 def screen_cvs(jd, competencies, cvs):
     api_key = os.environ.get("ANTHROPIC_API_KEY") or st.secrets.get("ANTHROPIC_API_KEY", "")
     if not api_key:
@@ -343,7 +360,8 @@ def folder_id_from_url(url):
 # ── Session state ─────────────────────────────────────────────────────────────
 for k, v in {"screen": "setup", "selected_idx": 0, "screening_results": None,
              "cvs": {}, "jd": "", "competencies": [], "role_title": "",
-             "filter": "all", "search": "", "sort": "match"}.items():
+             "filter": "all", "search": "", "sort": "match",
+             "jd_last_detected": ""}.items():
     if k not in st.session_state: st.session_state[k] = v
 
 # ── Shared header (components.html bypasses markdown parser) ──────────────────
@@ -439,6 +457,21 @@ if screen == "setup":
                         st.error(str(e))
                 else:
                     jd_input = st.session_state.jd
+
+        # ── Auto-detect competencies when JD changes ──────────────────────────
+        current_jd = st.session_state.jd or jd_input
+        if (current_jd
+                and current_jd != st.session_state.jd_last_detected
+                and len(current_jd) > 80):
+            with st.spinner("Auto-detecting skill competencies from JD…"):
+                try:
+                    detected = extract_competencies(current_jd)
+                    if detected:
+                        st.session_state.competencies = detected
+                        st.session_state.jd_last_detected = current_jd
+                        st.rerun()
+                except Exception:
+                    pass
 
         # ── Competencies card ─────────────────────────────────────────────────
         with st.container(border=True):
