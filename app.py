@@ -387,170 +387,184 @@ st.markdown(f"""
 if screen == "setup":
     # Step bar
     st.markdown("""
-    <div class="qs-step-bar">
-      <div class="qs-step-active" style="display:flex;align-items:center;gap:9px">
-        <div class="qs-step-num">1</div><span class="qs-step-label">Role</span>
-      </div>
-      <div class="qs-step-line" style="background:linear-gradient(90deg,#0075BC,#E4E9EF)"></div>
-      <div class="qs-step-inactive" style="display:flex;align-items:center;gap:9px">
-        <div class="qs-step-num">2</div><span class="qs-step-label">Criteria</span>
-      </div>
-      <div class="qs-step-line" style="background:#E4E9EF"></div>
-      <div class="qs-step-inactive" style="display:flex;align-items:center;gap:9px">
-        <div class="qs-step-num">3</div><span class="qs-step-label">Upload CVs</span>
-      </div>
-      <div class="qs-step-line" style="background:#E4E9EF"></div>
-      <div class="qs-step-inactive" style="display:flex;align-items:center;gap:9px">
-        <div class="qs-step-num">4</div><span class="qs-step-label">Review</span>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+<div class="qs-step-bar">
+<div class="qs-step-active" style="display:flex;align-items:center;gap:9px"><div class="qs-step-num">1</div><span class="qs-step-label">Role</span></div>
+<div class="qs-step-line" style="background:linear-gradient(90deg,#0075BC,#E4E9EF)"></div>
+<div class="qs-step-inactive" style="display:flex;align-items:center;gap:9px"><div class="qs-step-num">2</div><span class="qs-step-label">Criteria</span></div>
+<div class="qs-step-line" style="background:#E4E9EF"></div>
+<div class="qs-step-inactive" style="display:flex;align-items:center;gap:9px"><div class="qs-step-num">3</div><span class="qs-step-label">Upload CVs</span></div>
+<div class="qs-step-line" style="background:#E4E9EF"></div>
+<div class="qs-step-inactive" style="display:flex;align-items:center;gap:9px"><div class="qs-step-num">4</div><span class="qs-step-label">Review</span></div>
+</div>
+""", unsafe_allow_html=True)
 
-    with st.container():
-        st.markdown('<div style="max-width:1100px;margin:0 auto;padding:30px 36px">', unsafe_allow_html=True)
-        st.markdown("""
-        <div style="margin-bottom:20px">
-          <div style="font:800 28px 'Work Sans';letter-spacing:-.02em">Let's find your strongest candidates</div>
-          <div style="font:500 15px 'Work Sans';color:#5E6675;margin-top:5px">Describe the role and what great looks like. We'll rank every CV against it.</div>
-        </div>
-        """, unsafe_allow_html=True)
+    # ── content wrapper ───────────────────────────────────────────────────────
+    st.markdown('<div style="max-width:860px;margin:0 auto;padding:32px 24px 120px">', unsafe_allow_html=True)
 
-        # Role title
-        role_title = st.text_input("Role title", value=st.session_state.role_title,
-                                    placeholder="e.g. Placement Officer – Chennai",
-                                    label_visibility="collapsed")
-        st.session_state.role_title = role_title
+    st.markdown("""<div style="margin-bottom:24px"><div style="font:800 28px 'Work Sans';letter-spacing:-.02em;color:#1A1A2E">Let's find your strongest candidates</div><div style="font:500 15px 'Work Sans';color:#5E6675;margin-top:6px">Describe the role and what great looks like. We'll rank every CV against it.</div></div>""", unsafe_allow_html=True)
 
-        # JD card
-        st.markdown('<div class="qs-card">', unsafe_allow_html=True)
-        c1, c2 = st.columns([3,1])
-        with c1: st.markdown('<div class="qs-label">Job description</div>', unsafe_allow_html=True)
-        with c2:
-            jd_mode = st.radio("jd_mode", ["Paste text","Upload file"], horizontal=True,
-                                label_visibility="collapsed", key="jd_mode_radio")
+    # Role title input
+    role_title = st.text_input("Role title", value=st.session_state.role_title,
+                                placeholder="e.g. Placement Officer – Chennai",
+                                label_visibility="collapsed")
+    st.session_state.role_title = role_title
 
-        jd_input = ""
-        if jd_mode == "Paste text":
-            jd_input = st.text_area("jd_text", height=120,
-                placeholder="Senior Program Associate — Employability. Lead facilitation of youth career-readiness programs…",
-                label_visibility="collapsed", value=st.session_state.jd,
-                key="jd_textarea")
-            st.session_state.jd = jd_input
+    # ── JD card ───────────────────────────────────────────────────────────────
+    st.markdown('<div class="qs-card">', unsafe_allow_html=True)
+    hc1, hc2 = st.columns([3, 1])
+    with hc1:
+        st.markdown('<div class="qs-label">Job description</div>', unsafe_allow_html=True)
+    with hc2:
+        jd_mode = st.radio("jd_mode", ["Paste text", "Upload file"], horizontal=True,
+                            label_visibility="collapsed", key="jd_mode_radio")
+    jd_input = ""
+    if jd_mode == "Paste text":
+        jd_input = st.text_area("jd_text", height=130,
+            placeholder="Senior Program Associate — Employability. Lead facilitation of youth career-readiness programs…",
+            label_visibility="collapsed", value=st.session_state.jd, key="jd_textarea")
+        st.session_state.jd = jd_input
+    else:
+        jd_file = st.file_uploader("Upload JD", type=["pdf","docx","doc","txt"],
+                                    key="jd_file_upload", label_visibility="collapsed")
+        if jd_file:
+            try:
+                jd_input = extract_file_text(jd_file)
+                st.session_state.jd = jd_input
+                st.success(f"✅ {jd_file.name}")
+            except Exception as e:
+                st.error(str(e))
         else:
-            jd_file = st.file_uploader("Upload JD", type=["pdf","docx","doc","txt"],
-                                        key="jd_file_upload", label_visibility="collapsed")
-            if jd_file:
-                try:
-                    jd_input = extract_file_text(jd_file)
-                    st.session_state.jd = jd_input
-                    st.success(f"✅ {jd_file.name}")
-                except Exception as e:
-                    st.error(str(e))
-            else:
-                jd_input = st.session_state.jd
-        st.markdown('</div>', unsafe_allow_html=True)
+            jd_input = st.session_state.jd
+    st.markdown('</div>', unsafe_allow_html=True)
 
-        # Competencies card
-        st.markdown('<div class="qs-card">', unsafe_allow_html=True)
-        cc1, cc2 = st.columns([3,1])
-        with cc1: st.markdown('<div class="qs-label">Skill competencies</div>', unsafe_allow_html=True)
-        with cc2: st.markdown('<div class="qs-sublabel">One per line · auto-used in scoring</div>', unsafe_allow_html=True)
-        comp_text = st.text_area("competencies", height=100,
-            placeholder="Youth facilitation\nProgram management\nM&E / data\nStakeholder partnerships\nRegional language",
-            label_visibility="collapsed",
-            value="\n".join(st.session_state.competencies) if st.session_state.competencies else "",
-            key="comp_textarea")
-        st.session_state.competencies = [c.strip() for c in comp_text.splitlines() if c.strip()]
-        st.markdown('</div>', unsafe_allow_html=True)
+    # ── Competencies card (pill chips) ────────────────────────────────────────
+    st.markdown('<div class="qs-card">', unsafe_allow_html=True)
+    pc1, pc2 = st.columns([3, 1])
+    with pc1:
+        st.markdown('<div class="qs-label">Skill competencies</div>', unsafe_allow_html=True)
+    with pc2:
+        st.markdown('<div class="qs-sublabel" style="text-align:right">Auto-detected from the JD · tap to remove</div>', unsafe_allow_html=True)
 
-        # CV upload card
-        st.markdown('<div class="qs-card">', unsafe_allow_html=True)
-        vc1, vc2 = st.columns([3,1])
-        with vc1:
-            st.markdown(f'<div class="qs-label">Candidate CVs <span style="color:#0075BC">· {total} added</span></div>', unsafe_allow_html=True)
-        with vc2:
-            st.markdown('<div class="qs-sublabel">PDF, DOCX or TXT</div>', unsafe_allow_html=True)
+    # Show existing pills
+    comps = st.session_state.competencies
+    if comps:
+        pills_html = "".join(
+            f'<span class="qs-pill">{c}<button class="qs-pill-rm" title="remove">×</button></span>'
+            for c in comps
+        )
+        st.markdown(f'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">{pills_html}</div>',
+                    unsafe_allow_html=True)
 
-        cv_src = st.radio("cv_source", ["Upload files","Google Drive"], horizontal=True,
-                           label_visibility="collapsed", key="cv_source_radio")
+    # Add new competency
+    nc1, nc2 = st.columns([5, 1])
+    with nc1:
+        new_comp = st.text_input("add_comp", placeholder="+ Add skill (press Enter)",
+                                  label_visibility="collapsed", key="new_comp_input")
+    with nc2:
+        if st.button("Add", key="add_comp_btn", type="secondary") and new_comp.strip():
+            if new_comp.strip() not in st.session_state.competencies:
+                st.session_state.competencies.append(new_comp.strip())
+            st.rerun()
+    if new_comp.strip() and new_comp.strip() not in st.session_state.competencies:
+        st.session_state.competencies.append(new_comp.strip())
 
-        if cv_src == "Upload files":
-            uploaded = st.file_uploader("Upload CVs", type=["pdf","docx","doc","txt"],
-                                         accept_multiple_files=True, label_visibility="collapsed")
+    # Remove buttons (one per pill, rendered as st.buttons)
+    if comps:
+        rm_cols = st.columns(len(comps))
+        for i, (col, c) in enumerate(zip(rm_cols, comps)):
+            with col:
+                if st.button(f"✕ {c[:18]}", key=f"rm_{i}", help=f"Remove {c}"):
+                    st.session_state.competencies = [x for x in st.session_state.competencies if x != c]
+                    st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── CV upload card ────────────────────────────────────────────────────────
+    n_cvs = len(st.session_state.cvs)
+    st.markdown(f'<div class="qs-card">', unsafe_allow_html=True)
+    st.markdown(f'<div class="qs-label">Candidate CVs <span style="color:#0075BC">· {n_cvs} added</span><span style="font:500 13px \'Work Sans\';color:#9AA1AE;margin-left:auto;float:right">PDF, DOCX or TXT · up to 200 MB each</span></div>', unsafe_allow_html=True)
+
+    cv_src = st.radio("cv_source", ["Upload files", "Google Drive"], horizontal=True,
+                       label_visibility="collapsed", key="cv_source_radio")
+
+    if cv_src == "Upload files":
+        drop_col, files_col = st.columns([1, 1.8])
+        with drop_col:
+            uploaded = st.file_uploader("Drop CVs here", type=["pdf","docx","doc","txt"],
+                                         accept_multiple_files=True, label_visibility="visible")
             if uploaded:
-                with st.spinner("Reading files…"):
+                with st.spinner("Reading…"):
                     for f in uploaded:
                         if f.name not in st.session_state.cvs:
                             try: st.session_state.cvs[f.name] = extract_file_text(f)
                             except: pass
-                st.success(f"✅ {len(st.session_state.cvs)} CVs ready")
-        else:
-            if not get_drive_service():
-                st.info("Google Drive not configured. Add GOOGLE_SERVICE_ACCOUNT to Streamlit Secrets.")
-            else:
-                gd_url = st.text_input("Google Drive folder URL",
-                    placeholder="https://drive.google.com/drive/folders/…", key="cv_gd_url")
-                if gd_url:
-                    fid = folder_id_from_url(gd_url)
-                    with st.spinner("Listing…"): files = list_drive_files(fid)
-                    if files:
-                        sel = st.multiselect("Select CVs", options=files,
-                            default=files, format_func=lambda f: f["name"])
-                        if st.button("Load from Drive"):
-                            prog = st.progress(0)
-                            for i,f in enumerate(sel):
-                                try:
-                                    b = download_drive_file(f["id"],f["name"],f["mimeType"])
-                                    st.session_state.cvs[f["name"]] = parse_bytes(b,f["name"])
-                                except: pass
-                                prog.progress((i+1)/len(sel))
-                            prog.empty()
-                            st.success(f"✅ {len(st.session_state.cvs)} CVs loaded")
-
-        if st.session_state.cvs:
+                st.rerun()
+        with files_col:
             names = list(st.session_state.cvs.keys())
-            chips_html = "".join(
-                f'<span class="qs-file-chip"><span class="qs-file-icon qs-file-type-{"pdf" if n.lower().endswith(".pdf") else "doc"}">'
-                f'{"PDF" if n.lower().endswith(".pdf") else "DOC"}</span>'
-                f'<span style="font-weight:600;font-size:13px;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:160px">{n}</span>'
-                f'<span style="color:#0075BC;font-size:14px">✓</span></span>'
-                for n in names[:6]
-            )
-            extra = f'<span class="qs-file-chip"><span style="font:600 12px \'Work Sans\';color:#5E6675">+{len(names)-6} more</span></span>' if len(names)>6 else ""
-            st.markdown(f'<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">{chips_html}{extra}</div>',
-                        unsafe_allow_html=True)
+            if names:
+                # 2-column grid of file chips
+                pairs = [names[i:i+2] for i in range(0, len(names[:6]), 2)]
+                for pair in pairs:
+                    r1, r2 = st.columns(2)
+                    for col, nm in zip([r1, r2], pair):
+                        ext = "pdf" if nm.lower().endswith(".pdf") else "doc"
+                        tag = "PDF" if ext == "pdf" else "DOC"
+                        bg  = "#FEF0DC" if ext == "pdf" else "#E4EDF7"
+                        fg  = "#C76A0A" if ext == "pdf" else "#3251A3"
+                        with col:
+                            st.markdown(f'<div class="qs-file-chip"><span class="qs-file-icon" style="background:{bg};color:{fg}">{tag}</span><span style="font-weight:600;font-size:13px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:140px">{nm}</span><span style="color:#0075BC;font-size:13px;margin-left:auto">✓</span></div>', unsafe_allow_html=True)
+                extra = len(names) - 6
+                if extra > 0:
+                    st.markdown(f'<div style="font:600 13px \'Work Sans\';color:#5E6675;padding:6px 0">+ {extra} more files</div>', unsafe_allow_html=True)
+                if st.button("Clear all", key="clear_cvs", type="secondary"):
+                    st.session_state.cvs = {}
+                    st.rerun()
+            else:
+                st.markdown('<div style="font:500 13px \'Work Sans\';color:#9AA1AE;padding:20px 0">No CVs added yet</div>', unsafe_allow_html=True)
+    else:
+        if not get_drive_service():
+            st.info("Google Drive not configured. Add GOOGLE_SERVICE_ACCOUNT to Streamlit Secrets.")
+        else:
+            gd_url = st.text_input("Google Drive folder URL",
+                placeholder="https://drive.google.com/drive/folders/…", key="cv_gd_url")
+            if gd_url:
+                fid = folder_id_from_url(gd_url)
+                with st.spinner("Listing…"): gd_files = list_drive_files(fid)
+                if gd_files:
+                    sel = st.multiselect("Select CVs", options=gd_files,
+                        default=gd_files, format_func=lambda f: f["name"])
+                    if st.button("Load from Drive"):
+                        prog = st.progress(0)
+                        for i, f in enumerate(sel):
+                            try:
+                                b = download_drive_file(f["id"], f["name"], f["mimeType"])
+                                st.session_state.cvs[f["name"]] = parse_bytes(b, f["name"])
+                            except: pass
+                            prog.progress((i+1)/len(sel))
+                        prog.empty()
+                        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)  # end CV card
+    st.markdown('</div>', unsafe_allow_html=True)  # end content wrapper
 
-            if st.button("Clear all CVs", type="secondary"):
-                st.session_state.cvs = {}
-                st.rerun()
-
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # Footer bar
+    # ── Sticky footer + screen button ─────────────────────────────────────────
     can_screen = bool(st.session_state.jd or jd_input) and bool(st.session_state.cvs)
-    st.markdown(f"""
-    <div style="position:sticky;bottom:0;border-top:1px solid #E4E9EF;background:#fff;
-      padding:16px 36px;display:flex;align-items:center;justify-content:space-between;z-index:99">
-      <div style="font:500 13px 'Work Sans';color:#5E6675">
-        Takes about 30–60 seconds for {len(st.session_state.cvs)} CVs
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+    n_screen = len(st.session_state.cvs)
+    st.markdown(f"""<div style="position:fixed;bottom:0;left:0;right:0;border-top:1px solid #E4E9EF;background:#fff;padding:14px 36px;display:flex;align-items:center;justify-content:space-between;z-index:200"><div style="font:500 13px 'Work Sans';color:#5E6675">Takes about 30–60 seconds for {n_screen} CVs</div></div>""", unsafe_allow_html=True)
 
-    if st.button(f"Screen {len(st.session_state.cvs)} CVs →", type="primary",
-                  disabled=not can_screen, key="screen_btn"):
-        jd = st.session_state.jd or jd_input
-        comps = "\n".join(st.session_state.competencies) if st.session_state.competencies else ""
-        raw = screen_cvs(jd, comps, st.session_state.cvs)
-        if raw:
-            try:
-                st.session_state.screening_results = json.loads(raw)
-                st.session_state.screen = "results"
-                st.rerun()
-            except json.JSONDecodeError:
-                st.error("Could not parse response. Raw:")
-                st.code(raw)
+    btn_col = st.columns([5, 1])[1]
+    with btn_col:
+        if st.button(f"Screen {n_screen} CVs →", type="primary",
+                      disabled=not can_screen, key="screen_btn"):
+            jd = st.session_state.jd or jd_input
+            comps_str = "\n".join(st.session_state.competencies)
+            raw = screen_cvs(jd, comps_str, st.session_state.cvs)
+            if raw:
+                try:
+                    st.session_state.screening_results = json.loads(raw)
+                    st.session_state.screen = "results"
+                    st.rerun()
+                except json.JSONDecodeError:
+                    st.error("Could not parse response. Raw:")
+                    st.code(raw)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # RESULTS SCREEN
