@@ -222,20 +222,25 @@ def extract_competencies(jd_text):
     raw = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("` \n")
     return json.loads(raw)
 
-def screen_cvs(jd, competencies, cvs):
+def screen_cvs(jd, competencies, cvs, status_placeholder=None):
     api_key = os.environ.get("ANTHROPIC_API_KEY") or st.secrets.get("ANTHROPIC_API_KEY", "")
     if not api_key:
-        st.error("ANTHROPIC_API_KEY not set."); return None
+        st.error("⚠️ ANTHROPIC_API_KEY is not set in Streamlit Secrets. "
+                 "Go to app Settings → Secrets and add your key."); return None
     client = anthropic.Anthropic(api_key=api_key)
-    ph = st.empty()
-    ph.info("🔍 Analysing CVs with Claude… this may take up to a minute.")
+    if status_placeholder:
+        status_placeholder.info(f"🔍 Analysing {len(cvs)} CVs with Claude… this takes about 30–60 seconds.")
     chunks = []
-    with client.messages.stream(
-        model="claude-opus-4-8", max_tokens=8000, thinking={"type": "adaptive"},
-        messages=[{"role": "user", "content": build_prompt(jd, competencies, cvs)}]
-    ) as s:
-        for t in s.text_stream: chunks.append(t)
-    ph.empty()
+    try:
+        with client.messages.stream(
+            model="claude-opus-4-8", max_tokens=8000, thinking={"type": "adaptive"},
+            messages=[{"role": "user", "content": build_prompt(jd, competencies, cvs)}]
+        ) as s:
+            for t in s.text_stream: chunks.append(t)
+    except Exception as e:
+        if status_placeholder: status_placeholder.empty()
+        st.error(f"Claude API error: {e}"); return None
+    if status_placeholder: status_placeholder.empty()
     return "".join(chunks).strip()
 
 # ── PDF export ────────────────────────────────────────────────────────────────
@@ -466,12 +471,12 @@ if screen == "setup":
         if (current_jd
                 and current_jd != st.session_state.jd_last_detected
                 and len(current_jd) > 80):
+            st.session_state.jd_last_detected = current_jd  # mark first to prevent re-trigger
             with st.spinner("Auto-detecting skill competencies from JD…"):
                 try:
                     detected = extract_competencies(current_jd)
                     if detected:
                         st.session_state.competencies = detected
-                        st.session_state.jd_last_detected = current_jd
                         st.rerun()
                 except Exception:
                     pass
@@ -598,26 +603,40 @@ if screen == "setup":
                                 st.rerun()
 
     # ── Footer ────────────────────────────────────────────────────────────────
-    can_screen = bool(st.session_state.jd or jd_input) and bool(st.session_state.cvs)
-    n_screen = len(st.session_state.cvs)
+    jd_ready = bool(st.session_state.jd or jd_input)
+    cvs_ready = bool(st.session_state.cvs)
+    n_screen  = len(st.session_state.cvs)
+    can_screen = jd_ready and cvs_ready
+
+    # Full-width status area (above divider so it's always visible)
+    status_ph = st.empty()
+
     st.divider()
     _, fl, fr, _ = st.columns([2, 7, 2, 2])
     with fl:
-        st.caption(f"Takes about 30–60 seconds for {n_screen} CVs")
+        if not jd_ready:
+            st.caption("⚠️ Add a job description to continue")
+        elif not cvs_ready:
+            st.caption("⚠️ Upload at least one CV to continue")
+        else:
+            st.caption(f"Takes about 30–60 seconds for {n_screen} CVs")
     with fr:
         if st.button(f"Screen {n_screen} CVs →", type="primary",
                       disabled=not can_screen, key="screen_btn"):
             jd = st.session_state.jd or jd_input
             comps_str = "\n".join(st.session_state.competencies)
-            raw = screen_cvs(jd, comps_str, st.session_state.cvs)
+            raw = screen_cvs(jd, comps_str, st.session_state.cvs,
+                             status_placeholder=status_ph)
             if raw:
+                # strip accidental markdown fences
+                raw = re.sub(r"^```[a-z]*\n?", "", raw.strip()).rstrip("` \n")
                 try:
                     st.session_state.screening_results = json.loads(raw)
                     st.session_state.screen = "results"
                     st.rerun()
-                except json.JSONDecodeError:
-                    st.error("Could not parse response. Raw:")
-                    st.code(raw)
+                except json.JSONDecodeError as e:
+                    st.error(f"Could not parse Claude's response as JSON: {e}")
+                    st.code(raw[:2000])
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # RESULTS SCREEN
