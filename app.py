@@ -26,6 +26,10 @@ st.markdown("""
 [data-testid="stAppViewContainer"] { background: #F4F7FA; }
 * { font-family: 'Work Sans', -apple-system, sans-serif; box-sizing: border-box; }
 
+/* Card inner padding */
+[data-testid="stVerticalBlockBorderWrapper"] > div > div {
+  padding: 18px 22px !important;
+}
 /* Native widget overrides */
 [data-testid="stTextInput"] input,
 [data-testid="stTextArea"] textarea {
@@ -396,17 +400,12 @@ if screen == "setup":
 </div>
 """, height=60, scrolling=False)
 
-    # Page title
-    st.markdown("""
-<div style="padding:28px 36px 8px;max-width:900px;margin:0 auto">
-<div style="font:800 28px 'Work Sans',sans-serif;letter-spacing:-.02em;color:#1A1A2E">Let&#39;s find your strongest candidates</div>
-<div style="font:500 15px 'Work Sans',sans-serif;color:#5E6675;margin-top:6px">Describe the role and what great looks like. We&#39;ll rank every CV against it.</div>
-</div>
-""", unsafe_allow_html=True)
-
-    # Constrain to centre column
-    _, main_col, _ = st.columns([1, 14, 1])
+    # Constrain to centre column with visible side margins
+    _, main_col, _ = st.columns([2, 9, 2])
     with main_col:
+
+        # Page title
+        st.markdown("""<div style="padding:28px 0 16px"><div style="font:800 28px 'Work Sans',sans-serif;letter-spacing:-.02em;color:#1A1A2E">Let's find your strongest candidates</div><div style="font:500 15px 'Work Sans',sans-serif;color:#5E6675;margin-top:6px">Describe the role and what great looks like. We'll rank every CV against it.</div></div>""", unsafe_allow_html=True)
 
         # Role title
         role_title = st.text_input("Role title", value=st.session_state.role_title,
@@ -559,10 +558,10 @@ if screen == "setup":
     can_screen = bool(st.session_state.jd or jd_input) and bool(st.session_state.cvs)
     n_screen = len(st.session_state.cvs)
     st.divider()
-    foot_l, foot_r = st.columns([4, 1])
-    with foot_l:
+    _, fl, fr, _ = st.columns([2, 7, 2, 2])
+    with fl:
         st.caption(f"Takes about 30–60 seconds for {n_screen} CVs")
-    with foot_r:
+    with fr:
         if st.button(f"Screen {n_screen} CVs →", type="primary",
                       disabled=not can_screen, key="screen_btn"):
             jd = st.session_state.jd or jd_input
