@@ -542,9 +542,12 @@ if screen_btn:
     else:
         raw = screen_cvs(jd_input, competencies_input, cvs)
         if raw:
-            st.divider()
-            st.header("Screening Results")
-            render_results(raw)
+            st.session_state["screening_results"] = raw
+
+if "screening_results" in st.session_state:
+    st.divider()
+    st.header("Screening Results")
+    render_results(st.session_state["screening_results"])
 
 # ── Google Drive setup instructions ──────────────────────────────────────────
 
