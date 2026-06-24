@@ -136,13 +136,36 @@ def render_results(raw_json: str):
 
 with st.sidebar:
     st.header("Role Details")
-    jd_input = st.text_area(
-        "Job Description",
-        height=250,
-        placeholder="Paste the full job description here…",
-    )
+
+    jd_tab_paste, jd_tab_upload = st.tabs(["Paste text", "Upload file"])
+    with jd_tab_paste:
+        jd_pasted = st.text_area(
+            "Job Description",
+            height=220,
+            placeholder="Paste the full job description here…",
+            label_visibility="collapsed",
+        )
+    with jd_tab_upload:
+        jd_file = st.file_uploader(
+            "Upload JD (PDF or DOCX)",
+            type=["pdf", "docx", "doc", "txt"],
+            key="jd_file",
+            label_visibility="collapsed",
+        )
+        if jd_file:
+            try:
+                jd_from_file = extract_cv_text(jd_file)
+                st.success(f"Loaded: {jd_file.name}")
+            except Exception as e:
+                st.error(f"Could not read file: {e}")
+                jd_from_file = ""
+        else:
+            jd_from_file = ""
+
+    jd_input = jd_from_file if jd_from_file else jd_pasted
+
     competencies_input = st.text_area(
-        "Skill Competencies",
+        "Skill Competencies (optional)",
         height=150,
         placeholder="List the required skills and competencies, one per line or as a paragraph…",
     )
