@@ -103,33 +103,17 @@ button[title="undo-reject"]:hover { background: #c94820 !important; border-color
 [data-testid="stVerticalBlockBorderWrapper"] > div > div { padding: 20px 22px !important; }
 
 /* ── File uploader ── */
-[data-testid="stFileUploader"] {
-  border-radius: 11px !important;
-}
+[data-testid="stFileUploader"] { border-radius: 11px !important; }
 [data-testid="stFileUploaderDropzone"] {
   border: 1.5px dashed #B8DCF0 !important;
   border-radius: 11px !important;
   background: repeating-linear-gradient(135deg,#EAF4FB 0 10px,#fff 10px 20px) !important;
-  padding: 20px !important;
 }
-[data-testid="stFileUploaderDropzoneInstructions"] {
-  color: #3A4150 !important;
-}
-[data-testid="stFileUploaderDropzoneInstructions"] span { font-weight: 600 !important; font-size: 13px !important; color: #222838 !important; }
-[data-testid="stFileUploaderDropzoneInstructions"] small { font-size: 12px !important; color: #5E6675 !important; }
-[data-testid="stFileUploaderDropzone"] button {
-  background: #0075BC !important;
-  color: #fff !important;
-  border: none !important;
+[data-testid="stFileUploaderFile"] {
+  background: #F4F7FA !important;
+  border: 1px solid #E4E9EF !important;
   border-radius: 9px !important;
-  font-weight: 600 !important;
-  font-size: 13px !important;
-  padding: 8px 16px !important;
-  margin-top: 8px !important;
 }
-[data-testid="stFileUploaderDropzone"] button:hover { background: #005A91 !important; }
-[data-testid="stFileUploaderFile"] { background: #F4F7FA !important; border: 1px solid #E4E9EF !important; border-radius: 9px !important; }
-[data-testid="stFileUploaderDeleteBtn"] button { background: transparent !important; color: #F15A29 !important; }
 
 /* ── Expander ── */
 [data-testid="stExpander"] { border: 1px solid #E4E9EF !important; border-radius: 12px !important; background: #fff !important; }
@@ -682,9 +666,13 @@ if screen == "setup":
         with cv_hc2:
             st.caption("PDF, DOCX or TXT")
 
-        uploaded = st.file_uploader("Drop CVs here — PDF, DOCX or TXT", type=["pdf","docx","doc","txt"],
-                                     accept_multiple_files=True, label_visibility="collapsed",
-                                     key="cv_uploader")
+        uploaded = st.file_uploader(
+            "Drag & drop CVs or click Browse files",
+            type=["pdf","docx","doc","txt"],
+            accept_multiple_files=True,
+            label_visibility="visible",
+            key="cv_uploader",
+        )
         if uploaded:
             new_files = [f for f in uploaded if f.name not in st.session_state.cvs]
             if new_files:
