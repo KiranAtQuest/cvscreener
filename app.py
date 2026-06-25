@@ -104,10 +104,32 @@ button[title="undo-reject"]:hover { background: #c94820 !important; border-color
 
 /* ── File uploader ── */
 [data-testid="stFileUploader"] {
+  border-radius: 11px !important;
+}
+[data-testid="stFileUploaderDropzone"] {
   border: 1.5px dashed #B8DCF0 !important;
   border-radius: 11px !important;
   background: repeating-linear-gradient(135deg,#EAF4FB 0 10px,#fff 10px 20px) !important;
+  padding: 20px !important;
 }
+[data-testid="stFileUploaderDropzoneInstructions"] {
+  color: #3A4150 !important;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] span { font-weight: 600 !important; font-size: 13px !important; color: #222838 !important; }
+[data-testid="stFileUploaderDropzoneInstructions"] small { font-size: 12px !important; color: #5E6675 !important; }
+[data-testid="stFileUploaderDropzone"] button {
+  background: #0075BC !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 9px !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  padding: 8px 16px !important;
+  margin-top: 8px !important;
+}
+[data-testid="stFileUploaderDropzone"] button:hover { background: #005A91 !important; }
+[data-testid="stFileUploaderFile"] { background: #F4F7FA !important; border: 1px solid #E4E9EF !important; border-radius: 9px !important; }
+[data-testid="stFileUploaderDeleteBtn"] button { background: transparent !important; color: #F15A29 !important; }
 
 /* ── Expander ── */
 [data-testid="stExpander"] { border: 1px solid #E4E9EF !important; border-radius: 12px !important; background: #fff !important; }
@@ -494,7 +516,8 @@ for k, v in {"screen": "setup", "selected_idx": 0, "screening_results": None,
              "cvs": {}, "jd": "", "competencies": [], "role_title": "",
              "filter": "all", "search": "", "sort": "match",
              "jd_last_detected": "", "candidate_history": {},
-             "score_feedback": {}, "feedback_examples": []}.items():
+             "score_feedback": {}, "feedback_examples": [],
+             "cv_upload_errors": []}.items():
     if k not in st.session_state: st.session_state[k] = v
 
 # ── Shared nav bar ────────────────────────────────────────────────────────────
@@ -659,22 +682,25 @@ if screen == "setup":
         with cv_hc2:
             st.caption("PDF, DOCX or TXT")
 
-        uploaded = st.file_uploader("Drop CVs here", type=["pdf","docx","doc","txt"],
-                                     accept_multiple_files=True, label_visibility="visible")
+        uploaded = st.file_uploader("Drop CVs here — PDF, DOCX or TXT", type=["pdf","docx","doc","txt"],
+                                     accept_multiple_files=True, label_visibility="collapsed",
+                                     key="cv_uploader")
         if uploaded:
             new_files = [f for f in uploaded if f.name not in st.session_state.cvs]
             if new_files:
-                with st.spinner(f"Reading {len(new_files)} file(s)…"):
-                    errors = []
-                    for f in new_files:
-                        try:
-                            f.seek(0)
-                            st.session_state.cvs[f.name] = extract_file_text(f)
-                        except Exception as e:
-                            errors.append(f"{f.name}: {e}")
+                errors = []
+                for f in new_files:
+                    try:
+                        f.seek(0)
+                        st.session_state.cvs[f.name] = extract_file_text(f)
+                    except Exception as e:
+                        errors.append(f"{f.name}: {e}")
                 if errors:
-                    st.warning("Some files could not be read:\n" + "\n".join(errors))
-                st.rerun()
+                    st.session_state["cv_upload_errors"] = errors
+                else:
+                    st.session_state.pop("cv_upload_errors", None)
+        if st.session_state.get("cv_upload_errors"):
+            st.warning("Some files could not be read:\n" + "\n".join(st.session_state["cv_upload_errors"]))
 
         names = list(st.session_state.cvs.keys())
         if names:
