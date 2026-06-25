@@ -164,6 +164,31 @@ def score_ring_colors(score):
 def candidate_key(r):
     return r.get("filename") or r.get("name") or str(r.get("rank", ""))
 
+# Auto-resizing iframe helper — measures actual rendered height and posts it back to Streamlit
+_RESIZE_JS = """
+<script>
+(function(){
+  function resize(){
+    var h = Math.max(
+      document.body ? document.body.scrollHeight : 0,
+      document.body ? document.body.offsetHeight : 0,
+      document.documentElement ? document.documentElement.scrollHeight : 0
+    );
+    window.parent.postMessage(
+      {isStreamlitMessage:true, type:'streamlit:setFrameHeight', height:h}, '*'
+    );
+  }
+  resize();
+  setTimeout(resize, 80);
+  setTimeout(resize, 300);
+  if (document.readyState !== 'complete') window.addEventListener('load', resize);
+})();
+</script>"""
+
+def auto_html(content):
+    """Render HTML in an iframe that auto-sizes to its actual content height."""
+    components.html(content + _RESIZE_JS, height=10, scrolling=False)
+
 def record_history(r, action):
     """Append a history entry for a candidate action."""
     key = candidate_key(r)
@@ -745,13 +770,13 @@ elif screen == "results":
     filt          = st.session_state.filter
 
     # Sub-header
-    components.html(f"""
+    auto_html(f"""
 <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@500;700;800&display=swap" rel="stylesheet">
 <div style="padding:20px 0 14px;font-family:'Work Sans',sans-serif">
   <div style="font:500 12px 'Work Sans';color:#5E6675;margin-bottom:4px;text-align:left">&#8592; {role_label}</div>
   <div style="font:800 22px 'Work Sans';letter-spacing:-.02em;color:#1A1A2E;text-align:left">{len(results_data)} candidates screened, ranked</div>
 </div>
-""", height=80, scrolling=False)
+""")
 
     # Band filter boxes (clickable) + search + sort
     b1, b2, b3, b4 = st.columns([1, 1, 1, 3])
@@ -859,27 +884,28 @@ elif screen == "results":
 
         col_main, col_actions = st.columns([8, 2])
         with col_main:
-            components.html(f"""
+            auto_html(f"""
 <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@500;700;800&display=swap" rel="stylesheet">
-<div style="display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #E4E9EF;border-left:4px solid {ring_color};border-radius:12px;padding:12px 16px;font-family:'Work Sans',sans-serif">
-  <div style="font:800 14px 'Work Sans';color:#C2C8D2;width:18px;text-align:left;flex:none">{r.get('rank',i+1)}</div>
-  <div style="width:40px;height:40px;border-radius:50%;background:{av_color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex:none">{inits}</div>
+<style>body{{margin:0;padding:0}}</style>
+<div style="display:flex;align-items:flex-start;gap:14px;background:#fff;border:1px solid #E4E9EF;border-left:4px solid {ring_color};border-radius:12px;padding:12px 16px;font-family:'Work Sans',sans-serif">
+  <div style="font:800 14px 'Work Sans';color:#C2C8D2;width:18px;padding-top:2px;text-align:left;flex:none">{r.get('rank',i+1)}</div>
+  <div style="width:40px;height:40px;border-radius:50%;background:{av_color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex:none;margin-top:2px">{inits}</div>
   <div style="flex:1;min-width:0">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <span style="font-weight:700;font-size:14px;color:#1A1A2E">{name}</span>
       {status_badge}
     </div>
-    <div style="font:500 12px 'Work Sans';color:#5E6675;margin-top:2px;text-align:left">{r.get('role','')} &middot; {r.get('years','')} yrs &middot; {r.get('location','')}</div>
-    <div style="display:flex;gap:5px;margin-top:5px;flex-wrap:wrap">{tags_html}</div>
+    <div style="font:500 12px 'Work Sans';color:#5E6675;margin-top:3px;text-align:left;line-height:1.4">{r.get('role','')} &middot; {r.get('years','')} yrs &middot; {r.get('location','')}</div>
+    <div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap">{tags_html}</div>
   </div>
-  <div style="position:relative;width:54px;height:54px;flex:none">
+  <div style="position:relative;width:54px;height:54px;flex:none;margin-top:2px">
     {donut}
     <div style="position:absolute;top:0;left:0;width:54px;height:54px;display:flex;align-items:center;justify-content:center">
       <span style="font-weight:800;font-size:15px;color:{ring_color};line-height:1">{sc}</span>
     </div>
   </div>
 </div>
-""", height=90, scrolling=False)
+""")
 
         with col_actions:
             a1, a2, a3 = st.columns(3)
@@ -1011,17 +1037,18 @@ elif screen == "detail":
         f'</svg>'
     )
 
-    components.html(f"""
+    auto_html(f"""
 <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@500;700;800&display=swap" rel="stylesheet">
-<div style="padding:20px 0;background:#fff;border:1px solid #E4E9EF;border-radius:14px;display:flex;align-items:center;gap:20px;font-family:'Work Sans',sans-serif;margin-bottom:16px;padding:16px 20px">
+<style>body{{margin:0;padding:0}}</style>
+<div style="background:#fff;border:1px solid #E4E9EF;border-radius:14px;display:flex;align-items:flex-start;gap:20px;font-family:'Work Sans',sans-serif;padding:16px 20px">
   <div style="width:52px;height:52px;border-radius:50%;background:{av_color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:22px;flex:none">{inits}</div>
   <div style="flex:1;min-width:0">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div style="font:800 20px 'Work Sans';letter-spacing:-.02em;color:#1A1A2E;text-align:left">{name}</div>
       <span style="background:{bbg};color:{bcolor};border-radius:999px;padding:3px 10px;font-weight:700;font-size:11px">{band_label}</span>
     </div>
-    <div style="font:500 13px 'Work Sans';color:#5E6675;margin-top:3px;text-align:left">{r.get('role','')} &middot; {r.get('years','')} yrs &middot; {r.get('location','')}</div>
-    <div style="display:flex;gap:14px;margin-top:6px;font:500 12px 'Work Sans';color:#3A4150">{email_html}{phone_html}</div>
+    <div style="font:500 13px 'Work Sans';color:#5E6675;margin-top:3px;text-align:left;line-height:1.4">{r.get('role','')} &middot; {r.get('years','')} yrs &middot; {r.get('location','')}</div>
+    <div style="display:flex;gap:14px;margin-top:6px;font:500 12px 'Work Sans';color:#3A4150;flex-wrap:wrap">{email_html}{phone_html}</div>
   </div>
   <div style="position:relative;width:74px;height:74px;flex:none">
     {detail_donut}
@@ -1031,7 +1058,7 @@ elif screen == "detail":
     </div>
   </div>
 </div>
-""", height=105, scrolling=False)
+""")
 
     # Action buttons
     is_sl_detail = r.get("shortlisted") is True
@@ -1086,16 +1113,17 @@ elif screen == "detail":
         if existing_fb:
             approved_txt = "✓ Scores approved" if existing_fb.get("approved") else "✎ Scores calibrated by reviewer"
             approved_color = "#1B6E2E" if existing_fb.get("approved") else "#0075BC"
-            components.html(f"""
-<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:10px 14px;font-family:'Work Sans',sans-serif;margin-bottom:12px">
+            auto_html(f"""
+<style>body{{margin:0;padding:0}}</style>
+<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:10px 14px;font-family:'Work Sans',sans-serif">
   <div style="font-weight:700;font-size:12px;color:{approved_color}">{approved_txt}</div>
-  <div style="font:500 11px 'Work Sans';color:#5E6675;margin-top:3px">
+  <div style="font:500 11px 'Work Sans';color:#5E6675;margin-top:3px;line-height:1.5">
     Overall: AI={existing_fb['ai_overall']} → Reviewer={existing_fb['human_overall']}
     {"  ·  " + existing_fb['reason'] if existing_fb.get('reason') else ""}
     · {existing_fb.get('ts','')}
   </div>
 </div>
-""", height=62, scrolling=False)
+""")
 
         with st.expander("🎯 Review & calibrate AI scores", expanded=not bool(existing_fb)):
             st.caption("Adjust scores if the AI got something wrong — your corrections help calibrate future screenings.")
@@ -1152,46 +1180,50 @@ elif screen == "detail":
         display_overall = existing_fb["human_overall"] if existing_fb else sc
         for label, val in zip(labels, display_scores):
             color = "#0075BC" if val >= 85 else "#F7941D" if val >= 65 else "#E85020"
-            components.html(f"""
-<div style="margin-bottom:14px;font-family:'Work Sans',sans-serif">
+            auto_html(f"""
+<style>body{{margin:0;padding:0}}</style>
+<div style="font-family:'Work Sans',sans-serif;padding-bottom:4px">
   <div style="display:flex;justify-content:space-between;font-weight:600;font-size:13px;margin-bottom:6px;color:#1A1A2E">
-    <span style="text-align:left">{label}</span><span style="color:{color}">{val}</span>
+    <span>{label}</span><span style="color:{color}">{val}</span>
   </div>
   <div style="height:8px;background:#E4E9EF;border-radius:999px;overflow:hidden">
     <div style="height:100%;width:{val}%;background:{color};border-radius:999px"></div>
   </div>
 </div>
-""", height=48, scrolling=False)
+""")
 
         if r.get("flag"):
-            components.html(f"""
+            auto_html(f"""
+<style>body{{margin:0;padding:0}}</style>
 <div style="background:#FEF0DC;border-radius:11px;padding:12px 14px;display:flex;gap:10px;font-family:'Work Sans',sans-serif">
-  <div style="font-size:15px">⚠</div>
+  <div style="font-size:15px;flex:none">⚠</div>
   <div>
-    <div style="font-weight:700;font-size:12px;color:#B0640C;text-align:left">One thing to verify</div>
-    <div style="font:500 12px/1.5 'Work Sans';color:#9A6410;margin-top:2px;text-align:left">{r['flag']}</div>
+    <div style="font-weight:700;font-size:12px;color:#B0640C">One thing to verify</div>
+    <div style="font:500 12px/1.6 'Work Sans';color:#9A6410;margin-top:4px">{r['flag']}</div>
   </div>
 </div>
-""", height=75, scrolling=False)
+""")
 
         st.markdown("**Gaps / Concerns**")
         for g in r.get("gaps", []):
             st.markdown(f"- {g}")
 
     with right_col:
-        components.html(f"""
+        auto_html(f"""
 <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@500;700&display=swap" rel="stylesheet">
-<div style="background:#0075BC;border-radius:12px;padding:14px 16px;color:#fff;font-family:'Work Sans',sans-serif;margin-bottom:16px">
-  <div style="font-weight:700;font-size:12px;margin-bottom:7px;text-align:left">&#10022; AI summary</div>
-  <div style="font:500 13px/1.6 'Work Sans';color:rgba(255,255,255,.92);text-align:left">{r.get('summary','')}</div>
+<style>body{{margin:0;padding:0}}</style>
+<div style="background:#0075BC;border-radius:12px;padding:14px 16px;color:#fff;font-family:'Work Sans',sans-serif">
+  <div style="font-weight:700;font-size:12px;margin-bottom:7px">&#10022; AI summary</div>
+  <div style="font:500 13px/1.6 'Work Sans';color:rgba(255,255,255,.92)">{r.get('summary','')}</div>
 </div>
-""", height=max(110, 55 + len(r.get("summary","")) // 3), scrolling=False)
+""")
 
         st.markdown("**Evidence from CV**")
         for ev in r.get("evidence", []):
-            components.html(f"""
-<div style="background:#fff;border:1px solid #E4E9EF;border-radius:10px;padding:10px 13px;margin-bottom:8px;font-family:'Work Sans',sans-serif">
-  <div style="font:600 10px 'JetBrains Mono',monospace;color:#0075BC;margin-bottom:3px;text-align:left">{ev.get('label','')}</div>
-  <div style="font:500 12px/1.5 'Work Sans';color:#3A4150;text-align:left">{ev.get('text','')}</div>
+            auto_html(f"""
+<style>body{{margin:0;padding:0}}</style>
+<div style="background:#fff;border:1px solid #E4E9EF;border-radius:10px;padding:10px 13px;margin-bottom:2px;font-family:'Work Sans',sans-serif">
+  <div style="font:600 10px 'JetBrains Mono',monospace;color:#0075BC;margin-bottom:4px">{ev.get('label','')}</div>
+  <div style="font:500 12px/1.6 'Work Sans';color:#3A4150">{ev.get('text','')}</div>
 </div>
-""", height=75, scrolling=False)
+""")
