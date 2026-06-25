@@ -97,6 +97,28 @@ st.markdown("""
 }
 /* Markdown left-align */
 p, h1, h2, h3, h4, li, label { text-align: left !important; }
+
+/* Shortlist / Reject toggle button states — keyed by title attribute */
+button[title="undo-shortlist"] {
+  background: #1B6E2E !important;
+  color: #fff !important;
+  border-color: #1B6E2E !important;
+  box-shadow: 0 2px 8px rgba(27,110,46,.35) !important;
+}
+button[title="undo-shortlist"]:hover {
+  background: #155724 !important;
+  border-color: #155724 !important;
+}
+button[title="undo-reject"] {
+  background: #C62828 !important;
+  color: #fff !important;
+  border-color: #C62828 !important;
+  box-shadow: 0 2px 8px rgba(198,40,40,.35) !important;
+}
+button[title="undo-reject"]:hover {
+  background: #a31e1e !important;
+  border-color: #a31e1e !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -308,6 +330,139 @@ def generate_pdf(results, role_title=""):
         "Scores are AI-generated and should be used alongside human review.", FT))
     doc.build(story)
     return buf.getvalue()
+
+# ── Excel export ─────────────────────────────────────────────────────────────
+
+def generate_excel(results, role_title="", history=None):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+
+    # ── Sheet 1: Results ───────────────────────────────────────────────────────
+    ws = wb.active
+    ws.title = "Screening Results"
+
+    BLUE  = "FF0075BC"
+    GREEN = "FF1B6E2E"
+    RED   = "FFC62828"
+    ORG   = "FFF7941D"
+    LGREY = "FFF4F7FA"
+    WHITE = "FFFFFFFF"
+    DARK  = "FF1A1A2E"
+
+    hdr_font  = Font(name="Calibri", bold=True, color=WHITE, size=11)
+    hdr_fill  = PatternFill("solid", fgColor=DARK)
+    hdr_align = Alignment(horizontal="left", vertical="center", wrap_text=True)
+
+    thin = Side(style="thin", color="FFE4E9EF")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    title_row = [
+        f"CV Screening Report — {role_title}" if role_title else "CV Screening Report",
+        "", "", "", "", f"Generated: {datetime.now().strftime('%d %B %Y')}"
+    ]
+    ws.append(title_row)
+    ws["A1"].font = Font(name="Calibri", bold=True, size=14, color=BLUE)
+    ws.merge_cells("A1:E1")
+    ws["F1"].font = Font(name="Calibri", size=10, color="FF5E6675")
+    ws["F1"].alignment = Alignment(horizontal="right")
+    ws.append([])
+
+    columns = ["Rank", "Name", "Role", "Years Exp", "Location",
+               "Overall Score", "Band", "Status",
+               "Strengths", "Gaps", "Summary", "Flag",
+               "Email", "Phone", "Filename"]
+    ws.append(columns)
+    for col_idx, _ in enumerate(columns, 1):
+        cell = ws.cell(row=3, column=col_idx)
+        cell.font = hdr_font
+        cell.fill = hdr_fill
+        cell.alignment = hdr_align
+        cell.border = border
+
+    band_colors = {"strong": GREEN, "possible": ORG, "weak": RED}
+
+    for r in results:
+        sc = r.get("overall", 0)
+        bname, _, _, _ = band(sc)
+        sl = r.get("shortlisted")
+        status = "Shortlisted" if sl is True else "Rejected" if sl is False else "Pending"
+        row = [
+            r.get("rank", ""),
+            r.get("name", r.get("filename", "")),
+            r.get("role", ""),
+            r.get("years", ""),
+            r.get("location", ""),
+            sc,
+            bname.capitalize(),
+            status,
+            "; ".join(r.get("strengths", [])),
+            "; ".join(r.get("gaps", [])),
+            r.get("summary", ""),
+            r.get("flag", "") or "",
+            r.get("email", ""),
+            r.get("phone", ""),
+            r.get("filename", ""),
+        ]
+        ws.append(row)
+        data_row = ws.max_row
+        for col_idx in range(1, len(columns)+1):
+            cell = ws.cell(row=data_row, column=col_idx)
+            cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+            cell.border = border
+            if data_row % 2 == 0:
+                cell.fill = PatternFill("solid", fgColor=LGREY)
+        # Color band cell
+        band_cell = ws.cell(row=data_row, column=7)
+        fc = band_colors.get(bname, DARK)
+        band_cell.font = Font(name="Calibri", bold=True, color=WHITE, size=10)
+        band_cell.fill = PatternFill("solid", fgColor=fc)
+        # Color status cell
+        st_cell = ws.cell(row=data_row, column=8)
+        if sl is True:
+            st_cell.font = Font(name="Calibri", bold=True, color=WHITE)
+            st_cell.fill = PatternFill("solid", fgColor=GREEN)
+        elif sl is False:
+            st_cell.font = Font(name="Calibri", bold=True, color=WHITE)
+            st_cell.fill = PatternFill("solid", fgColor=RED)
+
+    # Column widths
+    col_widths = [6, 22, 22, 10, 16, 13, 10, 12, 40, 30, 50, 35, 24, 16, 24]
+    for i, w in enumerate(col_widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+    ws.row_dimensions[3].height = 22
+    ws.freeze_panes = "A4"
+
+    # ── Sheet 2: History ───────────────────────────────────────────────────────
+    if history:
+        wh = wb.create_sheet("Status History")
+        wh.append(["Candidate", "Action", "Timestamp"])
+        for col_idx in range(1, 4):
+            cell = wh.cell(row=1, column=col_idx)
+            cell.font = hdr_font
+            cell.fill = hdr_fill
+            cell.alignment = hdr_align
+        all_entries = []
+        for entries in history.values():
+            all_entries.extend(entries)
+        all_entries.sort(key=lambda e: e["ts"], reverse=True)
+        for e in all_entries:
+            wh.append([e.get("name",""), e.get("action","").capitalize(), e.get("ts","")])
+            row_idx = wh.max_row
+            for col_idx in range(1, 4):
+                wh.cell(row=row_idx, column=col_idx).alignment = Alignment(horizontal="left", vertical="center")
+                wh.cell(row=row_idx, column=col_idx).border = border
+        wh.column_dimensions["A"].width = 24
+        wh.column_dimensions["B"].width = 16
+        wh.column_dimensions["C"].width = 22
+        wh.freeze_panes = "A2"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
 
 # ── Session state ─────────────────────────────────────────────────────────────
 for k, v in {"screen": "setup", "selected_idx": 0, "screening_results": None,
@@ -652,20 +807,34 @@ elif screen == "results":
 
         with col_actions:
             a1, a2, a3 = st.columns(3)
+            is_sl = r.get("shortlisted") is True
+            is_rj = r.get("shortlisted") is False
             with a1:
                 if st.button("→", key=f"view_{i}", help="View detail", type="secondary"):
                     st.session_state.selected_idx = global_idx
                     st.session_state.screen = "detail"
                     st.rerun()
             with a2:
-                if st.button("★", key=f"sl_{i}", help="Shortlist candidate", type="secondary"):
-                    st.session_state.screening_results[global_idx]["shortlisted"] = True
-                    record_history(r, "shortlisted")
+                # title="undo-shortlist" triggers green CSS when active
+                sl_title = "undo-shortlist" if is_sl else "Shortlist candidate"
+                if st.button("★", key=f"sl_{i}", help=sl_title, type="secondary"):
+                    if is_sl:
+                        st.session_state.screening_results[global_idx]["shortlisted"] = None
+                        record_history(r, "un-shortlisted")
+                    else:
+                        st.session_state.screening_results[global_idx]["shortlisted"] = True
+                        record_history(r, "shortlisted")
                     st.rerun()
             with a3:
-                if st.button("✕", key=f"rj_{i}", help="Reject candidate", type="secondary"):
-                    st.session_state.screening_results[global_idx]["shortlisted"] = False
-                    record_history(r, "rejected")
+                # title="undo-reject" triggers red CSS when active
+                rj_title = "undo-reject" if is_rj else "Reject candidate"
+                if st.button("✕", key=f"rj_{i}", help=rj_title, type="secondary"):
+                    if is_rj:
+                        st.session_state.screening_results[global_idx]["shortlisted"] = None
+                        record_history(r, "un-rejected")
+                    else:
+                        st.session_state.screening_results[global_idx]["shortlisted"] = False
+                        record_history(r, "rejected")
                     st.rerun()
 
     st.divider()
@@ -697,7 +866,7 @@ elif screen == "results":
                     f'</div>',
                     unsafe_allow_html=True)
 
-    c1, c2, _ = st.columns([2, 2, 4])
+    c1, c2, c3, _ = st.columns([2, 2, 2, 2])
     with c1:
         if st.button("← New screening", key="back_to_setup"):
             st.session_state.screen = "setup"
@@ -708,6 +877,13 @@ elif screen == "results":
         st.download_button("📄 Download PDF", data=pdf,
             file_name=f"CV_Screening_{datetime.now().strftime('%Y-%m-%d')}.pdf",
             mime="application/pdf", type="primary")
+    with c3:
+        xlsx = generate_excel(results_data, st.session_state.role_title,
+                              st.session_state.candidate_history)
+        st.download_button("📊 Download Excel", data=xlsx,
+            file_name=f"CV_Screening_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="secondary")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # DETAIL SCREEN
@@ -782,17 +958,31 @@ elif screen == "detail":
 """, height=105, scrolling=False)
 
     # Action buttons
+    is_sl_detail = r.get("shortlisted") is True
+    is_rj_detail = r.get("shortlisted") is False
     ac1, ac2, ac3, _ = st.columns([2, 2, 2, 4])
     with ac1:
-        sl_label = "★ Shortlisted" if r.get("shortlisted") else "★ Shortlist"
-        if st.button(sl_label, key="sl_btn", type="primary"):
-            st.session_state.screening_results[idx]["shortlisted"] = True
-            record_history(r, "shortlisted")
+        sl_title_d = "undo-shortlist" if is_sl_detail else "Shortlist candidate"
+        sl_label   = "★ Shortlisted" if is_sl_detail else "★ Shortlist"
+        if st.button(sl_label, key="sl_btn", help=sl_title_d,
+                     type="primary" if not is_sl_detail else "secondary"):
+            if is_sl_detail:
+                st.session_state.screening_results[idx]["shortlisted"] = None
+                record_history(r, "un-shortlisted")
+            else:
+                st.session_state.screening_results[idx]["shortlisted"] = True
+                record_history(r, "shortlisted")
             st.rerun()
     with ac2:
-        if st.button("✕ Reject", key="rj_btn", type="secondary"):
-            st.session_state.screening_results[idx]["shortlisted"] = False
-            record_history(r, "rejected")
+        rj_title_d = "undo-reject" if is_rj_detail else "Reject candidate"
+        rj_label   = "✕ Rejected" if is_rj_detail else "✕ Reject"
+        if st.button(rj_label, key="rj_btn", help=rj_title_d, type="secondary"):
+            if is_rj_detail:
+                st.session_state.screening_results[idx]["shortlisted"] = None
+                record_history(r, "un-rejected")
+            else:
+                st.session_state.screening_results[idx]["shortlisted"] = False
+                record_history(r, "rejected")
             st.rerun()
     with ac3:
         pdf_single = generate_pdf([r], st.session_state.role_title)
