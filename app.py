@@ -164,30 +164,9 @@ def score_ring_colors(score):
 def candidate_key(r):
     return r.get("filename") or r.get("name") or str(r.get("rank", ""))
 
-# Auto-resizing iframe helper — measures actual rendered height and posts it back to Streamlit
-_RESIZE_JS = """
-<script>
-(function(){
-  function resize(){
-    var h = Math.max(
-      document.body ? document.body.scrollHeight : 0,
-      document.body ? document.body.offsetHeight : 0,
-      document.documentElement ? document.documentElement.scrollHeight : 0
-    );
-    window.parent.postMessage(
-      {isStreamlitMessage:true, type:'streamlit:setFrameHeight', height:h}, '*'
-    );
-  }
-  resize();
-  setTimeout(resize, 80);
-  setTimeout(resize, 300);
-  if (document.readyState !== 'complete') window.addEventListener('load', resize);
-})();
-</script>"""
-
 def auto_html(content):
-    """Render HTML in an iframe that auto-sizes to its actual content height."""
-    components.html(content + _RESIZE_JS, height=10, scrolling=False)
+    """Render HTML directly in the page (no iframe, no height issues)."""
+    st.markdown(content, unsafe_allow_html=True)
 
 def record_history(r, action):
     """Append a history entry for a candidate action."""
