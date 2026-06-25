@@ -290,22 +290,27 @@ def extract_competencies(jd_text):
 def screen_cvs(jd, competencies, cvs, status_placeholder=None):
     api_key = os.environ.get("ANTHROPIC_API_KEY") or st.secrets.get("ANTHROPIC_API_KEY", "")
     if not api_key:
-        st.error("⚠️ ANTHROPIC_API_KEY is not set in Streamlit Secrets."); return None
+        st.error("⚠️ ANTHROPIC_API_KEY is not set in Streamlit Secrets.")
+        return None
     client = anthropic.Anthropic(api_key=api_key)
     if status_placeholder:
-        status_placeholder.info(f"🔍 Analysing {len(cvs)} CVs with Claude… this takes about 30–60 seconds.")
-    chunks = []
+        status_placeholder.info(f"🔍 Analysing {len(cvs)} CVs with Claude… this takes 30–90 seconds.")
     try:
-        with client.messages.stream(
-            model="claude-opus-4-8", max_tokens=8000, thinking={"type": "adaptive"},
+        msg = client.messages.create(
+            model="claude-opus-4-8",
+            max_tokens=8000,
             messages=[{"role": "user", "content": build_prompt(jd, competencies, cvs)}]
-        ) as s:
-            for t in s.text_stream: chunks.append(t)
+        )
+        result = msg.content[0].text.strip()
     except Exception as e:
-        if status_placeholder: status_placeholder.empty()
-        st.error(f"Claude API error: {e}"); return None
-    if status_placeholder: status_placeholder.empty()
-    return "".join(chunks).strip()
+        if status_placeholder:
+            status_placeholder.error(f"❌ Claude API error: {e}")
+        else:
+            st.error(f"❌ Claude API error: {e}")
+        return None
+    if status_placeholder:
+        status_placeholder.empty()
+    return result
 
 # ── PDF export ────────────────────────────────────────────────────────────────
 
@@ -726,7 +731,6 @@ if screen == "setup":
                 raw = re.sub(r"^```[a-z]*\n?", "", raw.strip()).rstrip("` \n")
                 try:
                     results = json.loads(raw)
-                    # stamp initial shortlist status into history
                     for r in results:
                         if r.get("shortlisted"):
                             record_history(r, "auto-shortlisted")
@@ -734,8 +738,10 @@ if screen == "setup":
                     st.session_state.screen = "results"
                     st.rerun()
                 except json.JSONDecodeError as e:
-                    st.error(f"Could not parse Claude's response as JSON: {e}")
-                    st.code(raw[:2000])
+                    st.error(f"❌ Could not parse Claude's response as JSON: {e}")
+                    st.code(raw[:3000])
+        elif raw is None:
+            pass  # error already shown inside screen_cvs
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # RESULTS SCREEN
