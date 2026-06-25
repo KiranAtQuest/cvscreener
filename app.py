@@ -176,11 +176,66 @@ def record_history(r, action):
         "ts": datetime.now().strftime("%d %b %Y, %H:%M"),
     })
 
+def record_feedback(r, ai_overall, ai_scores, ai_labels,
+                    human_overall, human_scores, reason, approved):
+    """Store a score calibration and add it to the feedback examples pool."""
+    key = candidate_key(r)
+    fb = {
+        "name": r.get("name", key),
+        "role": r.get("role", ""),
+        "years": r.get("years", ""),
+        "ai_overall": ai_overall,
+        "ai_scores": ai_scores,
+        "human_overall": human_overall,
+        "human_scores": human_scores,
+        "competency_labels": ai_labels,
+        "reason": reason,
+        "approved": approved,
+        "ts": datetime.now().strftime("%d %b %Y, %H:%M"),
+    }
+    st.session_state.score_feedback[key] = fb
+    # Add as a learning example only when the reviewer made a meaningful change
+    if not approved or abs(human_overall - ai_overall) >= 5:
+        example = (
+            f"Candidate: {r.get('name','')} | Role: {r.get('role','')} | {r.get('years','')} yrs exp\n"
+            f"AI scored overall {ai_overall}/100. "
+        )
+        if approved:
+            example += f"Reviewer APPROVED this score."
+        else:
+            example += (
+                f"Reviewer ADJUSTED overall to {human_overall}/100. "
+                f"Reason: {reason}. "
+            )
+            deltas = []
+            for label, a_sc, h_sc in zip(ai_labels, ai_scores, human_scores):
+                if abs(h_sc - a_sc) >= 5:
+                    deltas.append(f"{label}: AI={a_sc} → Reviewer={h_sc}")
+            if deltas:
+                example += "Competency adjustments: " + "; ".join(deltas) + "."
+        if "feedback_examples" not in st.session_state:
+            st.session_state.feedback_examples = []
+        st.session_state.feedback_examples.append(example)
+
 # ── Claude API ────────────────────────────────────────────────────────────────
 
 def build_prompt(jd, competencies, cvs):
     cv_block = "".join(f"\n---\nCV #{i} – {name}\n{text}\n"
                        for i, (name, text) in enumerate(cvs.items(), 1))
+
+    # Inject reviewer calibration examples so AI learns from past feedback
+    examples = getattr(st.session_state, "feedback_examples", [])
+    calibration_block = ""
+    if examples:
+        calibration_block = (
+            "\n## Reviewer Calibration (learn from these past adjustments)\n"
+            "The following examples show how this organisation's reviewers have "
+            "adjusted or approved AI scores in previous screenings. Use these to "
+            "calibrate your scoring for this batch.\n"
+            + "\n".join(f"- {ex}" for ex in examples[-10:])  # keep last 10
+            + "\n"
+        )
+
     return f"""You are an expert HR screener for Quest Alliance, an NGO focused on youth skilling in India.
 
 ## Job Description
@@ -188,7 +243,7 @@ def build_prompt(jd, competencies, cvs):
 
 ## Required Skill Competencies
 {competencies or "(derive from JD)"}
-
+{calibration_block}
 ## Candidate CVs
 {cv_block}
 
@@ -371,7 +426,7 @@ def generate_excel(results, role_title="", history=None):
     ws.append([])
 
     columns = ["Rank", "Name", "Role", "Years Exp", "Location",
-               "Overall Score", "Band", "Status",
+               "Score (Reviewed)", "Band", "Status", "Review Status",
                "Strengths", "Gaps", "Summary", "Flag",
                "Email", "Phone", "Filename"]
     ws.append(columns)
@@ -389,15 +444,25 @@ def generate_excel(results, role_title="", history=None):
         bname, _, _, _ = band(sc)
         sl = r.get("shortlisted")
         status = "Shortlisted" if sl is True else "Rejected" if sl is False else "Pending"
+        ck = r.get("filename") or r.get("name") or ""
+        fb_entry = (history or {}).get(ck) if history else None
+        # Use calibrated score if available (history arg reused for score_feedback here via caller)
+        score_fb = {}
+        if hasattr(st, 'session_state'):
+            score_fb = st.session_state.score_feedback.get(ck, {})
+        reviewed_score = score_fb.get("human_overall", sc) if score_fb else sc
+        review_status  = ("Approved" if score_fb.get("approved") else
+                          f"Calibrated ({sc}→{reviewed_score})") if score_fb else "Not reviewed"
         row = [
             r.get("rank", ""),
             r.get("name", r.get("filename", "")),
             r.get("role", ""),
             r.get("years", ""),
             r.get("location", ""),
-            sc,
+            reviewed_score,
             bname.capitalize(),
             status,
+            review_status,
             "; ".join(r.get("strengths", [])),
             "; ".join(r.get("gaps", [])),
             r.get("summary", ""),
@@ -414,12 +479,12 @@ def generate_excel(results, role_title="", history=None):
             cell.border = border
             if data_row % 2 == 0:
                 cell.fill = PatternFill("solid", fgColor=LGREY)
-        # Color band cell
+        # Color band cell (col 7)
         band_cell = ws.cell(row=data_row, column=7)
         fc = band_colors.get(bname, DARK)
         band_cell.font = Font(name="Calibri", bold=True, color=WHITE, size=10)
         band_cell.fill = PatternFill("solid", fgColor=fc)
-        # Color status cell
+        # Color status cell (col 8)
         st_cell = ws.cell(row=data_row, column=8)
         if sl is True:
             st_cell.font = Font(name="Calibri", bold=True, color=WHITE)
@@ -427,9 +492,14 @@ def generate_excel(results, role_title="", history=None):
         elif sl is False:
             st_cell.font = Font(name="Calibri", bold=True, color=WHITE)
             st_cell.fill = PatternFill("solid", fgColor=RED)
+        # Color review status cell (col 9)
+        rv_cell = ws.cell(row=data_row, column=9)
+        if score_fb:
+            rv_cell.font = Font(name="Calibri", bold=True,
+                                color=GREEN if score_fb.get("approved") else BLUE, size=10)
 
     # Column widths
-    col_widths = [6, 22, 22, 10, 16, 13, 10, 12, 40, 30, 50, 35, 24, 16, 24]
+    col_widths = [6, 22, 22, 10, 16, 14, 10, 12, 18, 40, 30, 50, 35, 24, 16, 24]
     for i, w in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
     ws.row_dimensions[3].height = 22
@@ -468,7 +538,8 @@ def generate_excel(results, role_title="", history=None):
 for k, v in {"screen": "setup", "selected_idx": 0, "screening_results": None,
              "cvs": {}, "jd": "", "competencies": [], "role_title": "",
              "filter": "all", "search": "", "sort": "match",
-             "jd_last_detected": "", "candidate_history": {}}.items():
+             "jd_last_detected": "", "candidate_history": {},
+             "score_feedback": {}, "feedback_examples": []}.items():
     if k not in st.session_state: st.session_state[k] = v
 
 # ── Shared header ─────────────────────────────────────────────────────────────
@@ -756,14 +827,19 @@ elif screen == "results":
             tags_html += (f'<span style="background:#E4E9EF;color:#5E6675;border-radius:6px;'
                           f'padding:3px 7px;font-weight:600;font-size:11px;white-space:nowrap">+{extra_tags}</span>')
 
-        # Current status badge
+        # Current status badge + calibration badge
         is_sl = r.get("shortlisted")
+        ckey_r = candidate_key(r)
+        fb_r   = st.session_state.score_feedback.get(ckey_r)
         if is_sl is True:
             status_badge = '<span style="background:#E3F1FA;color:#005A91;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:700">★ Shortlisted</span>'
-        elif is_sl is False and r.get("overall",0) < 65:
+        elif is_sl is False:
             status_badge = '<span style="background:#FDE7DE;color:#C23A18;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:700">✕ Rejected</span>'
         else:
             status_badge = ""
+        if fb_r:
+            cal_label = "✓ Approved" if fb_r.get("approved") else "✎ Calibrated"
+            status_badge += f'<span style="background:#F0FDF4;color:#1B6E2E;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:700;margin-left:4px">{cal_label}</span>'
 
         # SVG donut ring
         r_px  = 22
@@ -1003,9 +1079,78 @@ elif screen == "detail":
     left_col, right_col = st.columns([1.2, 1])
 
     with left_col:
+        # ── Score calibration panel ───────────────────────────────────────────
+        ckey_d = candidate_key(r)
+        existing_fb = st.session_state.score_feedback.get(ckey_d)
+
+        if existing_fb:
+            approved_txt = "✓ Scores approved" if existing_fb.get("approved") else "✎ Scores calibrated by reviewer"
+            approved_color = "#1B6E2E" if existing_fb.get("approved") else "#0075BC"
+            components.html(f"""
+<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;padding:10px 14px;font-family:'Work Sans',sans-serif;margin-bottom:12px">
+  <div style="font-weight:700;font-size:12px;color:{approved_color}">{approved_txt}</div>
+  <div style="font:500 11px 'Work Sans';color:#5E6675;margin-top:3px">
+    Overall: AI={existing_fb['ai_overall']} → Reviewer={existing_fb['human_overall']}
+    {"  ·  " + existing_fb['reason'] if existing_fb.get('reason') else ""}
+    · {existing_fb.get('ts','')}
+  </div>
+</div>
+""", height=62, scrolling=False)
+
+        with st.expander("🎯 Review & calibrate AI scores", expanded=not bool(existing_fb)):
+            st.caption("Adjust scores if the AI got something wrong — your corrections help calibrate future screenings.")
+
+            # Load prior feedback values as defaults if they exist
+            prior_overall = existing_fb["human_overall"] if existing_fb else sc
+            prior_comp    = existing_fb["human_scores"]   if existing_fb else list(scores)
+
+            new_overall = st.slider(
+                "Overall match score", 0, 100, prior_overall,
+                key=f"cal_overall_{idx}",
+                help="Drag to your assessed score for this candidate"
+            )
+            new_comp_scores = []
+            for j, (label, val) in enumerate(zip(labels, prior_comp)):
+                default_val = prior_comp[j] if j < len(prior_comp) else (scores[j] if j < len(scores) else 50)
+                new_val = st.slider(
+                    label, 0, 100, int(default_val),
+                    key=f"cal_comp_{idx}_{j}"
+                )
+                new_comp_scores.append(new_val)
+
+            cal_reason = st.text_area(
+                "Reason for adjustment (optional)",
+                value=existing_fb.get("reason", "") if existing_fb else "",
+                placeholder="e.g. Strong field experience not reflected in CV text; personally know this candidate's work…",
+                height=80, key=f"cal_reason_{idx}",
+                label_visibility="visible"
+            )
+
+            cal1, cal2 = st.columns(2)
+            with cal1:
+                if st.button("✓ Approve AI scores as-is", key=f"cal_approve_{idx}", type="secondary"):
+                    record_feedback(r, sc, list(scores), labels,
+                                    sc, list(scores), "", approved=True)
+                    # Sync overall back to original
+                    st.session_state.screening_results[idx]["overall"] = sc
+                    st.success("Scores approved and recorded.")
+                    st.rerun()
+            with cal2:
+                if st.button("💾 Save my adjustments", key=f"cal_save_{idx}", type="primary"):
+                    record_feedback(r, sc, list(scores), labels,
+                                    new_overall, new_comp_scores,
+                                    cal_reason.strip(), approved=False)
+                    # Write adjusted scores back into the result
+                    st.session_state.screening_results[idx]["overall"] = new_overall
+                    st.session_state.screening_results[idx]["scores"] = new_comp_scores
+                    st.success("Adjustments saved. Future screenings will learn from this.")
+                    st.rerun()
+
         st.markdown("**Match breakdown**")
-        st.caption("Scored against your competencies")
-        for label, val in zip(labels, scores):
+        # Use adjusted scores if available
+        display_scores = existing_fb["human_scores"] if existing_fb and not existing_fb.get("approved") else scores
+        display_overall = existing_fb["human_overall"] if existing_fb else sc
+        for label, val in zip(labels, display_scores):
             color = "#0075BC" if val >= 85 else "#F7941D" if val >= 65 else "#E85020"
             components.html(f"""
 <div style="margin-bottom:14px;font-family:'Work Sans',sans-serif">
