@@ -293,10 +293,15 @@ def screen_cvs(jd, competencies, cvs, status_placeholder=None):
         status_placeholder.info(f"🔍 Analysing {len(cvs)} CVs with Claude… this takes 30–90 seconds.")
     try:
         msg = client.messages.create(
-            model="claude-opus-4-8", max_tokens=8000,
+            model="claude-opus-4-8", max_tokens=16000,
             messages=[{"role": "user", "content": build_prompt(jd, competencies, cvs)}]
         )
-        result = msg.content[0].text.strip()
+        if msg.stop_reason == "max_tokens":
+            if status_placeholder:
+                status_placeholder.warning("⚠️ Response was truncated — too many CVs or CV text is very long. Try fewer CVs or shorter JD.")
+            else:
+                st.warning("⚠️ Response was truncated — too many CVs or CV text is very long.")
+        result = msg.content[0].text if msg.content else ""
     except Exception as e:
         if status_placeholder: status_placeholder.error(f"❌ Claude API error: {e}")
         else: st.error(f"❌ Claude API error: {e}")
@@ -736,21 +741,30 @@ if screen == "setup":
             jd = st.session_state.jd or jd_input
             comps_str = "\n".join(st.session_state.competencies)
             raw = screen_cvs(jd, comps_str, st.session_state.cvs, status_placeholder=status_ph)
-            if raw:
-                raw = re.sub(r"^```[a-z]*\n?", "", raw.strip()).rstrip("` \n")
-                try:
-                    results = json.loads(raw)
-                    for r in results:
-                        if r.get("shortlisted"):
-                            record_history(r, "auto-shortlisted")
-                    st.session_state.screening_results = results
-                    st.session_state.screen = "results"
-                    st.rerun()
-                except json.JSONDecodeError as e:
-                    st.error(f"❌ Could not parse Claude's response as JSON: {e}")
-                    st.code(raw[:3000])
-            elif raw is None:
-                pass  # error already shown in screen_cvs
+            if raw is not None:
+                # Extract JSON array robustly: strip fences, then find [...] anywhere
+                cleaned = re.sub(r"^```[a-z]*\n?", "", raw.strip()).rstrip("` \n")
+                # If stripping fences left nothing (e.g. empty code block), use raw
+                if not cleaned.strip():
+                    cleaned = raw.strip()
+                # Find the first [...] JSON array in the response
+                m = re.search(r'\[[\s\S]*\]', cleaned)
+                if m:
+                    cleaned = m.group(0)
+                if not cleaned:
+                    status_ph.error("❌ Claude returned an empty response. Check your API key and try again.")
+                else:
+                    try:
+                        results = json.loads(cleaned)
+                        for r in results:
+                            if r.get("shortlisted"):
+                                record_history(r, "auto-shortlisted")
+                        st.session_state.screening_results = results
+                        st.session_state.screen = "results"
+                        st.rerun()
+                    except json.JSONDecodeError as e:
+                        st.error(f"❌ Could not parse Claude's response as JSON: {e}")
+                        st.code(cleaned[:2000])
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # RESULTS SCREEN
