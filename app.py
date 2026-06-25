@@ -22,14 +22,20 @@ st.markdown("""
 
 #MainMenu, footer, header { visibility: hidden; }
 [data-testid="stSidebar"] { display: none; }
-.block-container { padding: 0 !important; max-width: 100% !important; }
 [data-testid="stAppViewContainer"] { background: #F4F7FA; }
-* { font-family: 'Work Sans', -apple-system, sans-serif; box-sizing: border-box; }
+* { font-family: 'Work Sans', -apple-system, sans-serif; box-sizing: border-box; text-align: left; }
 
-/* Card inner padding */
-[data-testid="stVerticalBlockBorderWrapper"] > div > div {
-  padding: 18px 22px !important;
+/* Centered content wrapper — 60% on desktop, 90% on mobile */
+.block-container {
+  max-width: 900px !important;
+  margin: 0 auto !important;
+  padding: 0 0 40px 0 !important;
+  width: 60% !important;
 }
+@media (max-width: 900px) {
+  .block-container { width: 90% !important; }
+}
+
 /* Native widget overrides */
 [data-testid="stTextInput"] input,
 [data-testid="stTextArea"] textarea {
@@ -38,6 +44,7 @@ st.markdown("""
   font-family: 'Work Sans', sans-serif !important;
   font-size: 14px !important;
   background: #fff !important;
+  text-align: left !important;
 }
 [data-testid="stTextInput"] input:focus,
 [data-testid="stTextArea"] textarea:focus {
@@ -50,16 +57,15 @@ st.markdown("""
   background: repeating-linear-gradient(135deg,#EAF4FB 0 10px,#fff 10px 20px) !important;
   padding: 8px !important;
 }
-/* Remove default Streamlit button style and make primary button Quest-blue */
 [data-testid="stButton"] button[kind="primary"] {
   background: #0075BC !important;
   color: #fff !important;
   border-radius: 11px !important;
   font-weight: 700 !important;
-  font-size: 15px !important;
-  padding: 12px 24px !important;
+  font-size: 14px !important;
+  padding: 10px 20px !important;
   border: none !important;
-  box-shadow: 0 4px 14px rgba(0,117,188,.3) !important;
+  box-shadow: 0 4px 14px rgba(0,117,188,.25) !important;
 }
 [data-testid="stButton"] button[kind="secondary"] {
   border-radius: 9px !important;
@@ -68,52 +74,29 @@ st.markdown("""
   border: 1px solid #E4E9EF !important;
   background: #fff !important;
 }
-/* Radio button row */
 [data-testid="stRadio"] label { font-size: 13px !important; font-weight: 600 !important; }
 [data-testid="stSelectbox"] { border-radius: 9px !important; }
-
-/* Card styling via container */
 [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] {
   border-radius: 14px !important;
   border: 1px solid #E4E9EF !important;
   background: #fff !important;
-  padding: 4px !important;
 }
-/* Score bar */
-.qs-bar-track { height: 9px; background: #E4E9EF; border-radius: 999px; overflow: hidden; margin-top: 7px; }
-.qs-bar-fill  { height: 100%; border-radius: 999px; }
+[data-testid="stVerticalBlockBorderWrapper"] > div > div {
+  padding: 16px 20px !important;
+}
 /* File chip */
 .qs-file-chip {
   display: flex; align-items: center; gap: 9px;
   background: #F4F7FA; border: 1px solid #E4E9EF;
-  border-radius: 9px; padding: 9px 11px;
+  border-radius: 9px; padding: 9px 11px; margin-bottom: 6px;
 }
 .qs-file-icon {
   width: 28px; height: 28px; border-radius: 6px;
   font-weight: 700; font-size: 9px;
   display: flex; align-items: center; justify-content: center; flex: none;
 }
-/* Candidate row */
-.qs-cand-row {
-  display: flex; align-items: center; gap: 16px;
-  background: #fff; border: 1px solid #E4E9EF;
-  border-radius: 12px; padding: 14px 18px;
-  margin-bottom: 9px;
-}
-.qs-avatar {
-  width: 42px; height: 42px; border-radius: 50%; color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 15px; flex: none;
-}
-.qs-score-ring {
-  width: 54px; height: 54px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; flex: none;
-}
-.qs-score-inner {
-  width: 42px; height: 42px; border-radius: 50%; background: #fff;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 15px;
-}
+/* Markdown left-align */
+p, h1, h2, h3, h4, li, label { text-align: left !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -156,16 +139,20 @@ def score_ring_colors(score):
     if score >= 65: return "#F7941D20", "#F7941D"
     return "#E8502020", "#E85020"
 
-def html(content, height=None):
-    """Render pure HTML via components.html to bypass markdown parser."""
-    if height:
-        components.html(content, height=height, scrolling=False)
-    else:
-        # auto-size: wrap in a div and let it size naturally
-        components.html(
-            f'<style>*{{margin:0;padding:0;font-family:"Work Sans",-apple-system,sans-serif}}</style>{content}',
-            height=None, scrolling=False
-        )
+def candidate_key(r):
+    return r.get("filename") or r.get("name") or str(r.get("rank", ""))
+
+def record_history(r, action):
+    """Append a history entry for a candidate action."""
+    key = candidate_key(r)
+    if "candidate_history" not in st.session_state:
+        st.session_state.candidate_history = {}
+    history = st.session_state.candidate_history.setdefault(key, [])
+    history.append({
+        "action": action,
+        "name": r.get("name", key),
+        "ts": datetime.now().strftime("%d %b %Y, %H:%M"),
+    })
 
 # ── Claude API ────────────────────────────────────────────────────────────────
 
@@ -206,10 +193,8 @@ Review each candidate carefully and return a JSON array sorted best-to-worst. Ea
 Return ONLY the JSON array, no markdown fences."""
 
 def extract_competencies(jd_text):
-    """Call Claude to pull 5 key skill competencies out of a JD."""
     api_key = os.environ.get("ANTHROPIC_API_KEY") or st.secrets.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        return []
+    if not api_key: return []
     client = anthropic.Anthropic(api_key=api_key)
     msg = client.messages.create(
         model="claude-opus-4-8", max_tokens=300,
@@ -218,15 +203,13 @@ def extract_competencies(jd_text):
             f"Return ONLY a JSON array of 5 short strings (3-5 words each), nothing else.\n\n{jd_text}"}]
     )
     raw = msg.content[0].text.strip()
-    # strip markdown fences if present
     raw = re.sub(r"^```[a-z]*\n?", "", raw).rstrip("` \n")
     return json.loads(raw)
 
 def screen_cvs(jd, competencies, cvs, status_placeholder=None):
     api_key = os.environ.get("ANTHROPIC_API_KEY") or st.secrets.get("ANTHROPIC_API_KEY", "")
     if not api_key:
-        st.error("⚠️ ANTHROPIC_API_KEY is not set in Streamlit Secrets. "
-                 "Go to app Settings → Secrets and add your key."); return None
+        st.error("⚠️ ANTHROPIC_API_KEY is not set in Streamlit Secrets."); return None
     client = anthropic.Anthropic(api_key=api_key)
     if status_placeholder:
         status_placeholder.info(f"🔍 Analysing {len(cvs)} CVs with Claude… this takes about 30–60 seconds.")
@@ -252,7 +235,6 @@ def generate_pdf(results, role_title=""):
     QB = colors.HexColor("#0075BC")
     G, R = colors.HexColor("#2E7D32"), colors.HexColor("#C62828")
     LG   = colors.HexColor("#F5F5F5")
-    ss   = getSampleStyleSheet()
     def sty(name, **kw): return ParagraphStyle(name, **kw)
     T  = sty("T",  fontSize=22, textColor=colors.HexColor("#1A1A2E"), spaceAfter=2*mm, fontName="Helvetica-Bold")
     ST = sty("ST", fontSize=11, textColor=colors.gray, spaceAfter=6*mm, fontName="Helvetica")
@@ -327,66 +309,26 @@ def generate_pdf(results, role_title=""):
     doc.build(story)
     return buf.getvalue()
 
-# ── Google Drive ──────────────────────────────────────────────────────────────
-
-@st.cache_resource
-def get_drive_service():
-    try:
-        from googleapiclient.discovery import build
-        from google.oauth2 import service_account
-        raw = st.secrets.get("GOOGLE_SERVICE_ACCOUNT", "")
-        if not raw: return None
-        creds = service_account.Credentials.from_service_account_info(
-            json.loads(raw), scopes=["https://www.googleapis.com/auth/drive.readonly"])
-        return build("drive", "v3", credentials=creds, cache_discovery=False)
-    except: return None
-
-def list_drive_files(folder_id):
-    svc = get_drive_service()
-    if not svc: return []
-    return svc.files().list(
-        q=f"'{folder_id}' in parents and trashed=false",
-        fields="files(id,name,mimeType)", pageSize=100
-    ).execute().get("files", [])
-
-def download_drive_file(file_id, name, mime):
-    from googleapiclient.http import MediaIoBaseDownload
-    svc = get_drive_service()
-    if mime == "application/vnd.google-apps.document":
-        req = svc.files().export_media(fileId=file_id,
-            mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-    else:
-        req = svc.files().get_media(fileId=file_id)
-    buf = io.BytesIO(); dl = MediaIoBaseDownload(buf, req); done = False
-    while not done: _, done = dl.next_chunk()
-    return buf.getvalue()
-
-def folder_id_from_url(url):
-    m = re.search(r"/folders/([a-zA-Z0-9_-]+)", url)
-    return m.group(1) if m else url.strip()
-
 # ── Session state ─────────────────────────────────────────────────────────────
 for k, v in {"screen": "setup", "selected_idx": 0, "screening_results": None,
              "cvs": {}, "jd": "", "competencies": [], "role_title": "",
              "filter": "all", "search": "", "sort": "match",
-             "jd_last_detected": ""}.items():
+             "jd_last_detected": "", "candidate_history": {}}.items():
     if k not in st.session_state: st.session_state[k] = v
 
-# ── Shared header (components.html bypasses markdown parser) ──────────────────
-screen       = st.session_state.screen
-results_data = st.session_state.screening_results or []
-shortlisted  = [r for r in results_data if r.get("shortlisted")]
+# ── Shared header ─────────────────────────────────────────────────────────────
+screen = st.session_state.screen
 
 components.html(f"""
 <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<div style="height:60px;background:#fff;border-bottom:1px solid #E4E9EF;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-family:'Work Sans',sans-serif">
+<div style="height:60px;background:#fff;border-bottom:1px solid #E4E9EF;display:flex;align-items:center;justify-content:space-between;padding:0 24px;font-family:'Work Sans',sans-serif">
   <div style="display:flex;align-items:center;gap:11px">
     <div style="width:32px;height:32px;border-radius:9px;background:#0075BC;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;position:relative;flex:none">
       Q<div style="width:10px;height:10px;border-radius:50%;background:#F7941D;position:absolute;bottom:-2px;right:-2px;border:2px solid #fff"></div>
     </div>
     <div>
-      <div style="font-weight:700;font-size:15px;line-height:1.05;color:#1A1A2E">CV Screener</div>
-      <div style="font:500 10px 'Work Sans';color:#9AA1AE">Quest Alliance · Enabling Self Learning</div>
+      <div style="font-weight:700;font-size:15px;line-height:1.05;color:#1A1A2E;text-align:left">CV Screener</div>
+      <div style="font:500 10px 'Work Sans';color:#9AA1AE;text-align:left">Quest Alliance · Enabling Self Learning</div>
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:14px">
@@ -400,238 +342,165 @@ components.html(f"""
 # ═══════════════════════════════════════════════════════════════════════════════
 if screen == "setup":
 
-    # Step bar
-    components.html("""
-<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@600;700&display=swap" rel="stylesheet">
-<div style="display:flex;align-items:center;padding:16px 36px;background:#fff;border-bottom:1px solid #E4E9EF;font-family:'Work Sans',sans-serif">
-  <div style="display:flex;align-items:center;gap:9px">
-    <div style="width:26px;height:26px;border-radius:50%;background:#0075BC;color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center">1</div>
-    <span style="font-weight:700;font-size:13px;color:#0075BC">Role</span>
-  </div>
-  <div style="flex:1;height:2px;margin:0 14px;background:linear-gradient(90deg,#0075BC,#E4E9EF)"></div>
-  <div style="display:flex;align-items:center;gap:9px">
-    <div style="width:26px;height:26px;border-radius:50%;background:#fff;border:2px solid #CBD2DC;color:#9AA1AE;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center">2</div>
-    <span style="font-weight:600;font-size:13px;color:#9AA1AE">Criteria</span>
-  </div>
-  <div style="flex:1;height:2px;margin:0 14px;background:#E4E9EF"></div>
-  <div style="display:flex;align-items:center;gap:9px">
-    <div style="width:26px;height:26px;border-radius:50%;background:#fff;border:2px solid #CBD2DC;color:#9AA1AE;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center">3</div>
-    <span style="font-weight:600;font-size:13px;color:#9AA1AE">Upload CVs</span>
-  </div>
-  <div style="flex:1;height:2px;margin:0 14px;background:#E4E9EF"></div>
-  <div style="display:flex;align-items:center;gap:9px">
-    <div style="width:26px;height:26px;border-radius:50%;background:#fff;border:2px solid #CBD2DC;color:#9AA1AE;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center">4</div>
-    <span style="font-weight:600;font-size:13px;color:#9AA1AE">Review</span>
-  </div>
-</div>
-""", height=60, scrolling=False)
+    st.markdown("""
+<div style="padding:28px 0 12px">
+  <div style="font:800 26px 'Work Sans',sans-serif;letter-spacing:-.02em;color:#1A1A2E;text-align:left">Let's find your strongest candidates</div>
+  <div style="font:500 14px 'Work Sans',sans-serif;color:#5E6675;margin-top:6px;text-align:left">Describe the role and what great looks like. We'll rank every CV against it.</div>
+</div>""", unsafe_allow_html=True)
 
-    # Constrain to centre column with visible side margins
-    _, main_col, _ = st.columns([2, 9, 2])
-    with main_col:
+    role_title = st.text_input("Role title", value=st.session_state.role_title,
+                                placeholder="e.g. Placement Officer – Chennai",
+                                label_visibility="visible")
+    st.session_state.role_title = role_title
 
-        # Page title
-        st.markdown("""<div style="padding:28px 0 16px"><div style="font:800 28px 'Work Sans',sans-serif;letter-spacing:-.02em;color:#1A1A2E">Let's find your strongest candidates</div><div style="font:500 15px 'Work Sans',sans-serif;color:#5E6675;margin-top:6px">Describe the role and what great looks like. We'll rank every CV against it.</div></div>""", unsafe_allow_html=True)
-
-        # Role title
-        role_title = st.text_input("Role title", value=st.session_state.role_title,
-                                    placeholder="e.g. Placement Officer – Chennai",
-                                    label_visibility="collapsed")
-        st.session_state.role_title = role_title
-
-        # ── JD card ───────────────────────────────────────────────────────────
-        with st.container(border=True):
-            hc1, hc2 = st.columns([3, 1])
-            with hc1:
-                st.markdown("**Job description**")
-            with hc2:
-                jd_mode = st.radio("jd_mode", ["Paste text", "Upload file"], horizontal=True,
-                                    label_visibility="collapsed", key="jd_mode_radio")
-            jd_input = ""
-            if jd_mode == "Paste text":
-                jd_input = st.text_area("jd_text", height=130,
-                    placeholder="Senior Program Associate — Employability. Lead facilitation of youth career-readiness programs…",
-                    label_visibility="collapsed", value=st.session_state.jd, key="jd_textarea")
-                st.session_state.jd = jd_input
-            else:
-                jd_file = st.file_uploader("Upload JD", type=["pdf","docx","doc","txt"],
-                                            key="jd_file_upload", label_visibility="collapsed")
-                if jd_file:
-                    try:
-                        jd_input = extract_file_text(jd_file)
-                        st.session_state.jd = jd_input
-                        st.success(f"✅ {jd_file.name}")
-                    except Exception as e:
-                        st.error(str(e))
-                else:
-                    jd_input = st.session_state.jd
-
-        # ── Auto-detect competencies when JD changes ──────────────────────────
-        current_jd = st.session_state.jd or jd_input
-        if (current_jd
-                and current_jd != st.session_state.jd_last_detected
-                and len(current_jd) > 80):
-            st.session_state.jd_last_detected = current_jd  # mark first to prevent re-trigger
-            with st.spinner("Auto-detecting skill competencies from JD…"):
+    # ── JD card ───────────────────────────────────────────────────────────────
+    with st.container(border=True):
+        hc1, hc2 = st.columns([3, 1])
+        with hc1:
+            st.markdown("**Job description**")
+        with hc2:
+            jd_mode = st.radio("jd_mode", ["Paste text", "Upload file"], horizontal=True,
+                                label_visibility="collapsed", key="jd_mode_radio")
+        jd_input = ""
+        if jd_mode == "Paste text":
+            jd_input = st.text_area("jd_text", height=130,
+                placeholder="Senior Program Associate — Employability. Lead facilitation of youth career-readiness programs…",
+                label_visibility="collapsed", value=st.session_state.jd, key="jd_textarea")
+            st.session_state.jd = jd_input
+        else:
+            jd_file = st.file_uploader("Upload JD", type=["pdf","docx","doc","txt"],
+                                        key="jd_file_upload", label_visibility="collapsed")
+            if jd_file:
                 try:
-                    detected = extract_competencies(current_jd)
-                    if detected:
-                        st.session_state.competencies = detected
+                    jd_input = extract_file_text(jd_file)
+                    st.session_state.jd = jd_input
+                    st.success(f"✅ {jd_file.name}")
+                except Exception as e:
+                    st.error(str(e))
+            else:
+                jd_input = st.session_state.jd
+
+    # ── Auto-detect competencies ───────────────────────────────────────────────
+    current_jd = st.session_state.jd or jd_input
+    if (current_jd and current_jd != st.session_state.jd_last_detected and len(current_jd) > 80):
+        st.session_state.jd_last_detected = current_jd
+        with st.spinner("Auto-detecting skill competencies from JD…"):
+            try:
+                detected = extract_competencies(current_jd)
+                if detected:
+                    st.session_state.competencies = detected
+                    st.rerun()
+            except Exception:
+                pass
+
+    # ── Competencies card ─────────────────────────────────────────────────────
+    with st.container(border=True):
+        cc1, cc2 = st.columns([3, 1])
+        with cc1:
+            st.markdown("**Skill competencies**")
+        with cc2:
+            st.caption("Auto-detected from JD · tap × to remove")
+        comps = st.session_state.competencies
+        if comps:
+            pill_cols = st.columns(min(len(comps), 5))
+            for i, (col, c) in enumerate(zip(pill_cols, comps[:5])):
+                with col:
+                    if st.button(f"{c} ×", key=f"rm_{i}", help=f"Remove {c}", type="secondary"):
+                        st.session_state.competencies = [x for x in st.session_state.competencies if x != c]
                         st.rerun()
-                except Exception:
-                    pass
-
-        # ── Competencies card ─────────────────────────────────────────────────
-        with st.container(border=True):
-            cc1, cc2 = st.columns([3, 1])
-            with cc1:
-                st.markdown("**Skill competencies**")
-            with cc2:
-                st.caption("Auto-detected from JD · tap × to remove")
-
-            comps = st.session_state.competencies
-
-            # Show pills as buttons so they can be removed
-            if comps:
-                pill_cols = st.columns(min(len(comps), 5))
-                for i, (col, c) in enumerate(zip(pill_cols, comps[:5])):
+            if len(comps) > 5:
+                extra_pills = st.columns(min(len(comps)-5, 5))
+                for i, (col, c) in enumerate(zip(extra_pills, comps[5:])):
                     with col:
-                        if st.button(f"{c} ×", key=f"rm_{i}",
-                                     help=f"Remove {c}",
-                                     type="secondary"):
+                        if st.button(f"{c} ×", key=f"rm_{i+5}", help=f"Remove {c}", type="secondary"):
                             st.session_state.competencies = [x for x in st.session_state.competencies if x != c]
                             st.rerun()
-                if len(comps) > 5:
-                    extra_pills = st.columns(min(len(comps)-5, 5))
-                    for i, (col, c) in enumerate(zip(extra_pills, comps[5:])):
-                        with col:
-                            if st.button(f"{c} ×", key=f"rm_{i+5}",
-                                         help=f"Remove {c}",
-                                         type="secondary"):
-                                st.session_state.competencies = [x for x in st.session_state.competencies if x != c]
-                                st.rerun()
+        nc1, nc2 = st.columns([5, 1])
+        with nc1:
+            new_comp = st.text_input("new_comp", placeholder="+ Add skill and press Add",
+                                      label_visibility="collapsed", key="new_comp_input")
+        with nc2:
+            if st.button("Add", key="add_comp_btn", type="secondary"):
+                if new_comp.strip() and new_comp.strip() not in st.session_state.competencies:
+                    st.session_state.competencies.append(new_comp.strip())
+                st.rerun()
 
-            nc1, nc2 = st.columns([5, 1])
-            with nc1:
-                new_comp = st.text_input("new_comp", placeholder="+ Add skill and press Add",
-                                          label_visibility="collapsed", key="new_comp_input")
-            with nc2:
-                if st.button("Add", key="add_comp_btn", type="secondary"):
-                    if new_comp.strip() and new_comp.strip() not in st.session_state.competencies:
-                        st.session_state.competencies.append(new_comp.strip())
-                    st.rerun()
+    # ── CV upload card (file upload only) ─────────────────────────────────────
+    n_cvs = len(st.session_state.cvs)
+    with st.container(border=True):
+        cv_hc1, cv_hc2 = st.columns([3, 1])
+        with cv_hc1:
+            st.markdown(f"**Candidate CVs** · <span style='color:#0075BC;font-weight:700'>{n_cvs} added</span>", unsafe_allow_html=True)
+        with cv_hc2:
+            st.caption("PDF, DOCX or TXT")
 
-        # ── CV upload card ────────────────────────────────────────────────────
-        n_cvs = len(st.session_state.cvs)
-        with st.container(border=True):
-            cv_hc1, cv_hc2 = st.columns([3, 1])
-            with cv_hc1:
-                st.markdown(f"**Candidate CVs** &nbsp; <span style='color:#0075BC;font-weight:700'>· {n_cvs} added</span>", unsafe_allow_html=True)
-            with cv_hc2:
-                st.caption("PDF, DOCX or TXT")
+        uploaded = st.file_uploader("Drop CVs here", type=["pdf","docx","doc","txt"],
+                                     accept_multiple_files=True, label_visibility="visible")
+        if uploaded:
+            new_files = [f for f in uploaded if f.name not in st.session_state.cvs]
+            if new_files:
+                with st.spinner(f"Reading {len(new_files)} file(s)…"):
+                    errors = []
+                    for f in new_files:
+                        try:
+                            f.seek(0)
+                            st.session_state.cvs[f.name] = extract_file_text(f)
+                        except Exception as e:
+                            errors.append(f"{f.name}: {e}")
+                if errors:
+                    st.warning("Some files could not be read:\n" + "\n".join(errors))
+                st.rerun()
 
-            cv_src = st.radio("cv_source", ["Upload files", "Google Drive"], horizontal=True,
-                               label_visibility="collapsed", key="cv_source_radio")
-
-            if cv_src == "Upload files":
-                drop_col, files_col = st.columns([1, 1.6])
-                with drop_col:
-                    uploaded = st.file_uploader("Drop CVs here", type=["pdf","docx","doc","txt"],
-                                                 accept_multiple_files=True, label_visibility="visible")
-                    if uploaded:
-                        new_files = [f for f in uploaded if f.name not in st.session_state.cvs]
-                        if new_files:
-                            with st.spinner(f"Reading {len(new_files)} file(s)…"):
-                                errors = []
-                                for f in new_files:
-                                    try:
-                                        f.seek(0)
-                                        st.session_state.cvs[f.name] = extract_file_text(f)
-                                    except Exception as e:
-                                        errors.append(f"{f.name}: {e}")
-                            if errors:
-                                st.warning("Some files could not be read:\n" + "\n".join(errors))
-                            st.rerun()
-                with files_col:
-                    names = list(st.session_state.cvs.keys())
-                    if names:
-                        pairs = [names[i:i+2] for i in range(0, min(len(names), 6), 2)]
-                        for pair in pairs:
-                            r1, r2 = st.columns(2)
-                            for col, nm in zip([r1, r2], pair):
-                                ext = "pdf" if nm.lower().endswith(".pdf") else "doc"
-                                tag = "PDF" if ext == "pdf" else "DOC"
-                                bg  = "#FEF0DC" if ext == "pdf" else "#E4EDF7"
-                                fg  = "#C76A0A" if ext == "pdf" else "#3251A3"
-                                with col:
-                                    st.markdown(
-                                        f'<div class="qs-file-chip">'
-                                        f'<span class="qs-file-icon" style="background:{bg};color:{fg}">{tag}</span>'
-                                        f'<span style="font-weight:600;font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:130px">{nm}</span>'
-                                        f'<span style="color:#0075BC;font-size:13px;margin-left:auto">✓</span>'
-                                        f'</div>',
-                                        unsafe_allow_html=True)
-                        extra = len(names) - 6
-                        if extra > 0:
-                            st.caption(f"+ {extra} more files")
-                        if st.button("Clear all", key="clear_cvs", type="secondary"):
-                            st.session_state.cvs = {}
-                            st.rerun()
-                    else:
-                        st.caption("No CVs added yet — upload on the left")
-            else:
-                if not get_drive_service():
-                    st.info("Google Drive not configured. Add GOOGLE_SERVICE_ACCOUNT to Streamlit Secrets.")
-                else:
-                    gd_url = st.text_input("Google Drive folder URL",
-                        placeholder="https://drive.google.com/drive/folders/…", key="cv_gd_url")
-                    if gd_url:
-                        fid = folder_id_from_url(gd_url)
-                        with st.spinner("Listing…"): gd_files = list_drive_files(fid)
-                        if gd_files:
-                            sel = st.multiselect("Select CVs", options=gd_files,
-                                default=gd_files, format_func=lambda f: f["name"])
-                            if st.button("Load from Drive"):
-                                prog = st.progress(0)
-                                for i, f in enumerate(sel):
-                                    try:
-                                        b = download_drive_file(f["id"], f["name"], f["mimeType"])
-                                        st.session_state.cvs[f["name"]] = parse_bytes(b, f["name"])
-                                    except: pass
-                                    prog.progress((i+1)/len(sel))
-                                prog.empty()
-                                st.rerun()
+        names = list(st.session_state.cvs.keys())
+        if names:
+            for nm in names:
+                ext = "pdf" if nm.lower().endswith(".pdf") else "doc"
+                tag = "PDF" if ext == "pdf" else "DOC"
+                bg  = "#FEF0DC" if ext == "pdf" else "#E4EDF7"
+                fg  = "#C76A0A" if ext == "pdf" else "#3251A3"
+                st.markdown(
+                    f'<div class="qs-file-chip">'
+                    f'<span class="qs-file-icon" style="background:{bg};color:{fg}">{tag}</span>'
+                    f'<span style="font-weight:600;font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:200px">{nm}</span>'
+                    f'<span style="color:#0075BC;font-size:13px;margin-left:auto">✓</span>'
+                    f'</div>',
+                    unsafe_allow_html=True)
+            if st.button("Clear all CVs", key="clear_cvs", type="secondary"):
+                st.session_state.cvs = {}
+                st.rerun()
 
     # ── Footer ────────────────────────────────────────────────────────────────
-    jd_ready = bool(st.session_state.jd or jd_input)
-    cvs_ready = bool(st.session_state.cvs)
-    n_screen  = len(st.session_state.cvs)
+    jd_ready   = bool(st.session_state.jd or jd_input)
+    cvs_ready  = bool(st.session_state.cvs)
+    n_screen   = len(st.session_state.cvs)
     can_screen = jd_ready and cvs_ready
 
-    # Full-width status area (above divider so it's always visible)
     status_ph = st.empty()
-
     st.divider()
-    _, fl, fr, _ = st.columns([2, 7, 2, 2])
+
+    fl, fr = st.columns([5, 2])
     with fl:
         if not jd_ready:
             st.caption("⚠️ Add a job description to continue")
         elif not cvs_ready:
             st.caption("⚠️ Upload at least one CV to continue")
         else:
-            st.caption(f"Takes about 30–60 seconds for {n_screen} CVs")
+            st.caption(f"Takes about 30–60 seconds for {n_screen} CV{'s' if n_screen != 1 else ''}")
     with fr:
         if st.button(f"Screen {n_screen} CVs →", type="primary",
                       disabled=not can_screen, key="screen_btn"):
             jd = st.session_state.jd or jd_input
             comps_str = "\n".join(st.session_state.competencies)
-            raw = screen_cvs(jd, comps_str, st.session_state.cvs,
-                             status_placeholder=status_ph)
+            raw = screen_cvs(jd, comps_str, st.session_state.cvs, status_placeholder=status_ph)
             if raw:
-                # strip accidental markdown fences
                 raw = re.sub(r"^```[a-z]*\n?", "", raw.strip()).rstrip("` \n")
                 try:
-                    st.session_state.screening_results = json.loads(raw)
+                    results = json.loads(raw)
+                    # stamp initial shortlist status into history
+                    for r in results:
+                        if r.get("shortlisted"):
+                            record_history(r, "auto-shortlisted")
+                    st.session_state.screening_results = results
                     st.session_state.screen = "results"
                     st.rerun()
                 except json.JSONDecodeError as e:
@@ -642,67 +511,68 @@ if screen == "setup":
 # RESULTS SCREEN
 # ═══════════════════════════════════════════════════════════════════════════════
 elif screen == "results":
-    results_data = st.session_state.screening_results or []
+    results_data  = st.session_state.screening_results or []
     strong_list   = [r for r in results_data if r.get("overall", 0) >= 85]
     possible_list = [r for r in results_data if 65 <= r.get("overall", 0) < 85]
     weak_list     = [r for r in results_data if r.get("overall", 0) < 65]
-
-    role_label = st.session_state.role_title or "Screening Results"
+    role_label    = st.session_state.role_title or "Screening Results"
+    filt          = st.session_state.filter
 
     # Sub-header
     components.html(f"""
 <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@500;700;800&display=swap" rel="stylesheet">
-<div style="padding:20px 36px 16px;background:#fff;border-bottom:1px solid #E4E9EF;font-family:'Work Sans',sans-serif;display:flex;align-items:flex-end;justify-content:space-between">
-  <div>
-    <div style="display:flex;align-items:center;gap:8px;font:500 13px 'Work Sans';color:#5E6675;margin-bottom:4px">
-      <span style="cursor:pointer">&#8592; {role_label}</span>
-    </div>
-    <div style="font:800 24px 'Work Sans';letter-spacing:-.02em;color:#1A1A2E">{len(results_data)} candidates screened, ranked</div>
-  </div>
-  <div style="display:flex;gap:10px">
-    <div style="text-align:center;background:#E3F1FA;border-radius:11px;padding:9px 16px">
-      <div style="font:800 20px 'Work Sans';color:#005A91">{len(strong_list)}</div>
-      <div style="font:600 11px 'Work Sans';color:#005A91">Strong</div>
-    </div>
-    <div style="text-align:center;background:#FEF0DC;border-radius:11px;padding:9px 16px">
-      <div style="font:800 20px 'Work Sans';color:#C76A0A">{len(possible_list)}</div>
-      <div style="font:600 11px 'Work Sans';color:#C76A0A">Possible</div>
-    </div>
-    <div style="text-align:center;background:#FDE7DE;border-radius:11px;padding:9px 16px">
-      <div style="font:800 20px 'Work Sans';color:#C23A18">{len(weak_list)}</div>
-      <div style="font:600 11px 'Work Sans';color:#C23A18">Weak</div>
-    </div>
-  </div>
+<div style="padding:20px 0 14px;font-family:'Work Sans',sans-serif">
+  <div style="font:500 12px 'Work Sans';color:#5E6675;margin-bottom:4px;text-align:left">&#8592; {role_label}</div>
+  <div style="font:800 22px 'Work Sans';letter-spacing:-.02em;color:#1A1A2E;text-align:left">{len(results_data)} candidates screened, ranked</div>
 </div>
-""", height=100, scrolling=False)
+""", height=80, scrolling=False)
 
-    # Filter / search / sort bar — active filter rendered as "primary" button
-    filt = st.session_state.filter
-    fc1, fc2, fc3, fc4, fc5, fc6 = st.columns([4, 1, 1.2, 1.2, 1, 2])
-    with fc1:
+    # Band filter boxes (clickable) + search + sort
+    b1, b2, b3, b4 = st.columns([1, 1, 1, 3])
+    with b1:
+        if st.button(
+            f"{'▶ ' if filt == 'strong' else ''}**{len(strong_list)}** Strong",
+            key="fband_strong",
+            type="primary" if filt == "strong" else "secondary",
+            help="Filter: Strong (≥85)"
+        ):
+            st.session_state.filter = "strong" if filt != "strong" else "all"
+            st.rerun()
+    with b2:
+        if st.button(
+            f"{'▶ ' if filt == 'possible' else ''}**{len(possible_list)}** Possible",
+            key="fband_possible",
+            type="primary" if filt == "possible" else "secondary",
+            help="Filter: Possible (65–84)"
+        ):
+            st.session_state.filter = "possible" if filt != "possible" else "all"
+            st.rerun()
+    with b3:
+        if st.button(
+            f"{'▶ ' if filt == 'weak' else ''}**{len(weak_list)}** Weak",
+            key="fband_weak",
+            type="primary" if filt == "weak" else "secondary",
+            help="Filter: Weak (<65)"
+        ):
+            st.session_state.filter = "weak" if filt != "weak" else "all"
+            st.rerun()
+    with b4:
         search = st.text_input("search", placeholder="🔍  Search candidates…",
                                 label_visibility="collapsed", key="search_input")
-    with fc2:
-        if st.button("All",      key="f_all",      type="primary" if filt == "all"      else "secondary"):
-            st.session_state.filter = "all";      st.rerun()
-    with fc3:
-        if st.button("Strong",   key="f_strong",   type="primary" if filt == "strong"   else "secondary"):
-            st.session_state.filter = "strong";   st.rerun()
-    with fc4:
-        if st.button("Possible", key="f_possible", type="primary" if filt == "possible" else "secondary"):
-            st.session_state.filter = "possible"; st.rerun()
-    with fc5:
-        if st.button("Weak",     key="f_weak",     type="primary" if filt == "weak"     else "secondary"):
-            st.session_state.filter = "weak";     st.rerun()
-    with fc6:
+
+    sort_col, all_col = st.columns([4, 1])
+    with sort_col:
         sort = st.selectbox("sort", ["Best match", "Name A–Z", "Experience"],
                              label_visibility="collapsed", key="sort_sel")
+    with all_col:
+        if st.button("All", key="f_all", type="primary" if filt == "all" else "secondary"):
+            st.session_state.filter = "all"; st.rerun()
 
     # Filter & sort
     filtered = results_data
-    if filt == "strong":    filtered = strong_list
+    if filt == "strong":     filtered = strong_list
     elif filt == "possible": filtered = possible_list
-    elif filt == "weak":    filtered = weak_list
+    elif filt == "weak":     filtered = weak_list
     if search:
         filtered = [r for r in filtered if search.lower() in r.get("name","").lower()
                     or search.lower() in r.get("filename","").lower()]
@@ -710,28 +580,37 @@ elif screen == "results":
     elif "Exp" in sort:  filtered = sorted(filtered, key=lambda r: -r.get("years", 0))
 
     if not filtered:
-        st.info("No candidates match these filters.")
+        st.info("No candidates match this filter.")
 
     for i, r in enumerate(filtered):
-        sc          = r.get("overall", 0)
+        sc         = r.get("overall", 0)
         _, bbg, bcolor, _ = band(sc)
         ring_bg, ring_color = score_ring_colors(sc)
-        av_color    = avatar_color(r.get("name", r.get("filename","")))
-        name        = r.get("name", r.get("filename",""))
-        inits       = initials(name)
-        strengths   = r.get("strengths", [])
-        tags        = strengths[:2]
-        extra_tags  = len(strengths) - 2
+        av_color   = avatar_color(r.get("name", r.get("filename","")))
+        name       = r.get("name", r.get("filename",""))
+        inits      = initials(name)
+        strengths  = r.get("strengths", [])
+        tags       = strengths[:2]
+        extra_tags = len(strengths) - 2
 
         tags_html = "".join(
-            f'<span style="background:#E3F1FA;color:#005A91;border-radius:6px;padding:4px 9px;'
+            f'<span style="background:#E3F1FA;color:#005A91;border-radius:6px;padding:3px 8px;'
             f'font-weight:600;font-size:11px;white-space:nowrap">{t}</span>'
             for t in tags)
         if extra_tags > 0:
             tags_html += (f'<span style="background:#E4E9EF;color:#5E6675;border-radius:6px;'
-                          f'padding:4px 8px;font-weight:600;font-size:11px;white-space:nowrap">+{extra_tags}</span>')
+                          f'padding:3px 7px;font-weight:600;font-size:11px;white-space:nowrap">+{extra_tags}</span>')
 
-        # SVG donut score ring
+        # Current status badge
+        is_sl = r.get("shortlisted")
+        if is_sl is True:
+            status_badge = '<span style="background:#E3F1FA;color:#005A91;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:700">★ Shortlisted</span>'
+        elif is_sl is False and r.get("overall",0) < 65:
+            status_badge = '<span style="background:#FDE7DE;color:#C23A18;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:700">✕ Rejected</span>'
+        else:
+            status_badge = ""
+
+        # SVG donut ring
         r_px  = 22
         circ  = 2 * 3.14159 * r_px
         dash_offset = circ * (1 - sc / 100)
@@ -744,18 +623,24 @@ elif screen == "results":
             f'</svg>'
         )
 
-        col_main, col_actions = st.columns([9, 2])
+        # Find global index in results_data for this candidate
+        global_idx = next((j for j, x in enumerate(results_data) if candidate_key(x) == candidate_key(r)), i)
+
+        col_main, col_actions = st.columns([8, 2])
         with col_main:
             components.html(f"""
 <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@500;700;800&display=swap" rel="stylesheet">
-<div style="display:flex;align-items:center;gap:16px;background:#fff;border:1px solid #E4E9EF;border-left:4px solid {ring_color};border-radius:12px;padding:14px 18px;font-family:'Work Sans',sans-serif">
-  <div style="font:800 15px 'Work Sans';color:#C2C8D2;width:20px;text-align:center;flex:none">{r.get('rank',i+1)}</div>
-  <div style="width:42px;height:42px;border-radius:50%;background:{av_color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:none">{inits}</div>
+<div style="display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #E4E9EF;border-left:4px solid {ring_color};border-radius:12px;padding:12px 16px;font-family:'Work Sans',sans-serif">
+  <div style="font:800 14px 'Work Sans';color:#C2C8D2;width:18px;text-align:left;flex:none">{r.get('rank',i+1)}</div>
+  <div style="width:40px;height:40px;border-radius:50%;background:{av_color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex:none">{inits}</div>
   <div style="flex:1;min-width:0">
-    <div style="font-weight:700;font-size:15px;color:#1A1A2E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{name}</div>
-    <div style="font:500 12px 'Work Sans';color:#5E6675;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{r.get('role','')} &middot; {r.get('years','')} yrs &middot; {r.get('location','')}</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-weight:700;font-size:14px;color:#1A1A2E">{name}</span>
+      {status_badge}
+    </div>
+    <div style="font:500 12px 'Work Sans';color:#5E6675;margin-top:2px;text-align:left">{r.get('role','')} &middot; {r.get('years','')} yrs &middot; {r.get('location','')}</div>
+    <div style="display:flex;gap:5px;margin-top:5px;flex-wrap:wrap">{tags_html}</div>
   </div>
-  <div style="display:flex;gap:5px;align-items:center;flex-shrink:0">{tags_html}</div>
   <div style="position:relative;width:54px;height:54px;flex:none">
     {donut}
     <div style="position:absolute;top:0;left:0;width:54px;height:54px;display:flex;align-items:center;justify-content:center">
@@ -763,31 +648,56 @@ elif screen == "results":
     </div>
   </div>
 </div>
-""", height=76, scrolling=False)
+""", height=90, scrolling=False)
 
         with col_actions:
             a1, a2, a3 = st.columns(3)
             with a1:
                 if st.button("→", key=f"view_{i}", help="View detail", type="secondary"):
-                    st.session_state.selected_idx = next(
-                        (j for j, x in enumerate(results_data) if x.get("rank") == r.get("rank")), i)
+                    st.session_state.selected_idx = global_idx
                     st.session_state.screen = "detail"
                     st.rerun()
             with a2:
-                if st.button("★", key=f"sl_{i}", help="Shortlist", type="secondary"):
-                    results_data[next(
-                        (j for j, x in enumerate(results_data) if x.get("rank") == r.get("rank")), i
-                    )]["shortlisted"] = True
+                if st.button("★", key=f"sl_{i}", help="Shortlist candidate", type="secondary"):
+                    st.session_state.screening_results[global_idx]["shortlisted"] = True
+                    record_history(r, "shortlisted")
                     st.rerun()
             with a3:
-                if st.button("✕", key=f"rj_{i}", help="Reject", type="secondary"):
-                    results_data[next(
-                        (j for j, x in enumerate(results_data) if x.get("rank") == r.get("rank")), i
-                    )]["shortlisted"] = False
+                if st.button("✕", key=f"rj_{i}", help="Reject candidate", type="secondary"):
+                    st.session_state.screening_results[global_idx]["shortlisted"] = False
+                    record_history(r, "rejected")
                     st.rerun()
 
     st.divider()
-    c1, c2, c3 = st.columns([2, 2, 4])
+
+    # Candidate history
+    history = st.session_state.candidate_history
+    if history:
+        with st.expander(f"📋 Candidate status history ({sum(len(v) for v in history.values())} actions)"):
+            all_entries = []
+            for key, entries in history.items():
+                for e in entries:
+                    all_entries.append(e)
+            # Sort by most recent first (ts string is "DD Mon YYYY, HH:MM")
+            all_entries.sort(key=lambda e: e["ts"], reverse=True)
+            for e in all_entries:
+                action = e["action"]
+                if action == "shortlisted":
+                    icon, color = "★", "#005A91"
+                elif action == "rejected":
+                    icon, color = "✕", "#C23A18"
+                else:
+                    icon, color = "•", "#5E6675"
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F0F2F5">'
+                    f'<span style="color:{color};font-weight:700;font-size:14px;width:16px">{icon}</span>'
+                    f'<span style="font-weight:600;font-size:13px;color:#1A1A2E;flex:1">{e["name"]}</span>'
+                    f'<span style="font-size:12px;color:#5E6675;font-weight:500">{action.capitalize()}</span>'
+                    f'<span style="font-size:11px;color:#9AA1AE;margin-left:12px">{e["ts"]}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True)
+
+    c1, c2, _ = st.columns([2, 2, 4])
     with c1:
         if st.button("← New screening", key="back_to_setup"):
             st.session_state.screen = "setup"
@@ -795,7 +705,7 @@ elif screen == "results":
             st.rerun()
     with c2:
         pdf = generate_pdf(results_data, st.session_state.role_title)
-        st.download_button("📄 Download PDF Report", data=pdf,
+        st.download_button("📄 Download PDF", data=pdf,
             file_name=f"CV_Screening_{datetime.now().strftime('%Y-%m-%d')}.pdf",
             mime="application/pdf", type="primary")
 
@@ -820,57 +730,83 @@ elif screen == "detail":
     labels      = r.get("competency_labels", [f"Competency {i+1}" for i in range(len(scores))])
 
     # Nav bar
-    nav1, _, nav3 = st.columns([2, 6, 2])
+    nav1, _, nav3 = st.columns([3, 4, 3])
     with nav1:
         if st.button("← Back to candidates", key="back_results"):
             st.session_state.screen = "results"; st.rerun()
     with nav3:
         pc1, pc2 = st.columns(2)
         with pc1:
-            if idx > 0 and st.button("↑ Prev"):
+            if idx > 0 and st.button("↑ Prev", key="prev_btn"):
                 st.session_state.selected_idx -= 1; st.rerun()
         with pc2:
-            if idx < len(results_data)-1 and st.button("Next ↓"):
+            if idx < len(results_data)-1 and st.button("Next ↓", key="next_btn"):
                 st.session_state.selected_idx += 1; st.rerun()
 
     # Candidate header
-    email_html = f'<span>✉ {r["email"]}</span>' if r.get("email") else ""
-    phone_html = f'<span>📞 {r["phone"]}</span>' if r.get("phone") else ""
+    email_html = f'<span style="text-align:left">✉ {r["email"]}</span>' if r.get("email") else ""
+    phone_html = f'<span style="text-align:left">📞 {r["phone"]}</span>' if r.get("phone") else ""
+
+    # SVG donut for detail
+    r_px  = 30
+    circ  = 2 * 3.14159 * r_px
+    dash_offset = circ * (1 - sc / 100)
+    detail_donut = (
+        f'<svg width="74" height="74" viewBox="0 0 74 74" style="position:absolute;top:0;left:0;transform:rotate(-90deg)">'
+        f'<circle cx="37" cy="37" r="{r_px}" fill="none" stroke="#E4E9EF" stroke-width="6"/>'
+        f'<circle cx="37" cy="37" r="{r_px}" fill="none" stroke="{ring_color}" stroke-width="6" '
+        f'stroke-dasharray="{circ:.1f}" stroke-dashoffset="{dash_offset:.1f}" stroke-linecap="round"/>'
+        f'</svg>'
+    )
+
     components.html(f"""
 <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@500;700;800&display=swap" rel="stylesheet">
-<div style="padding:22px 36px;background:#fff;border-bottom:1px solid #E4E9EF;display:flex;align-items:center;gap:22px;font-family:'Work Sans',sans-serif">
-  <div style="width:74px;height:74px;border-radius:50%;background:{av_color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:27px;flex:none">{inits}</div>
-  <div style="flex:1">
-    <div style="display:flex;align-items:center;gap:10px">
-      <div style="font:800 24px 'Work Sans';letter-spacing:-.02em;color:#1A1A2E">{name}</div>
-      <span style="background:{bbg};color:{bcolor};border-radius:999px;padding:4px 11px;font-weight:700;font-size:12px">{band_label}</span>
+<div style="padding:20px 0;background:#fff;border:1px solid #E4E9EF;border-radius:14px;display:flex;align-items:center;gap:20px;font-family:'Work Sans',sans-serif;margin-bottom:16px;padding:16px 20px">
+  <div style="width:52px;height:52px;border-radius:50%;background:{av_color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:22px;flex:none">{inits}</div>
+  <div style="flex:1;min-width:0">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="font:800 20px 'Work Sans';letter-spacing:-.02em;color:#1A1A2E;text-align:left">{name}</div>
+      <span style="background:{bbg};color:{bcolor};border-radius:999px;padding:3px 10px;font-weight:700;font-size:11px">{band_label}</span>
     </div>
-    <div style="font:500 14px 'Work Sans';color:#5E6675;margin-top:4px">{r.get('role','')} &middot; {r.get('years','')} yrs &middot; {r.get('location','')}</div>
-    <div style="display:flex;gap:16px;margin-top:8px;font:500 13px 'Work Sans';color:#3A4150">{email_html}{phone_html}</div>
+    <div style="font:500 13px 'Work Sans';color:#5E6675;margin-top:3px;text-align:left">{r.get('role','')} &middot; {r.get('years','')} yrs &middot; {r.get('location','')}</div>
+    <div style="display:flex;gap:14px;margin-top:6px;font:500 12px 'Work Sans';color:#3A4150">{email_html}{phone_html}</div>
   </div>
-  <div style="text-align:center;flex:none">
-    <div style="width:78px;height:78px;border-radius:50%;background:{ring_bg};display:flex;align-items:center;justify-content:center">
-      <div style="width:60px;height:60px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center">
-        <div style="font-weight:800;font-size:22px;color:{ring_color};line-height:1">{sc}</div>
-        <div style="font:600 9px 'Work Sans';color:#9AA1AE">/ 100</div>
-      </div>
+  <div style="position:relative;width:74px;height:74px;flex:none">
+    {detail_donut}
+    <div style="position:absolute;top:0;left:0;width:74px;height:74px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+      <div style="font-weight:800;font-size:20px;color:{ring_color};line-height:1">{sc}</div>
+      <div style="font:600 9px 'Work Sans';color:#9AA1AE">/100</div>
     </div>
   </div>
 </div>
-""", height=118, scrolling=False)
+""", height=105, scrolling=False)
 
     # Action buttons
     ac1, ac2, ac3, _ = st.columns([2, 2, 2, 4])
     with ac1:
-        shortlist_label = "★ Shortlisted" if r.get("shortlisted") else "★ Shortlist"
-        st.button(shortlist_label, key="sl_btn", type="primary")
+        sl_label = "★ Shortlisted" if r.get("shortlisted") else "★ Shortlist"
+        if st.button(sl_label, key="sl_btn", type="primary"):
+            st.session_state.screening_results[idx]["shortlisted"] = True
+            record_history(r, "shortlisted")
+            st.rerun()
     with ac2:
-        st.button("✕ Reject", key="rj_btn", type="secondary")
+        if st.button("✕ Reject", key="rj_btn", type="secondary"):
+            st.session_state.screening_results[idx]["shortlisted"] = False
+            record_history(r, "rejected")
+            st.rerun()
     with ac3:
         pdf_single = generate_pdf([r], st.session_state.role_title)
         st.download_button("⤓ Export PDF", data=pdf_single,
             file_name=f"{name.replace(' ','_')}_Report.pdf",
             mime="application/pdf", type="secondary")
+
+    # Show history for this candidate
+    ckey = candidate_key(r)
+    chistory = st.session_state.candidate_history.get(ckey, [])
+    if chistory:
+        st.caption("Status history: " + "  ·  ".join(
+            f"{e['action'].capitalize()} at {e['ts']}" for e in reversed(chistory)
+        ))
 
     st.divider()
 
@@ -882,46 +818,45 @@ elif screen == "detail":
         for label, val in zip(labels, scores):
             color = "#0075BC" if val >= 85 else "#F7941D" if val >= 65 else "#E85020"
             components.html(f"""
-<div style="margin-bottom:16px;font-family:'Work Sans',sans-serif">
-  <div style="display:flex;justify-content:space-between;font-weight:600;font-size:14px;margin-bottom:7px;color:#1A1A2E">
-    <span>{label}</span><span style="color:{color}">{val}</span>
+<div style="margin-bottom:14px;font-family:'Work Sans',sans-serif">
+  <div style="display:flex;justify-content:space-between;font-weight:600;font-size:13px;margin-bottom:6px;color:#1A1A2E">
+    <span style="text-align:left">{label}</span><span style="color:{color}">{val}</span>
   </div>
-  <div style="height:9px;background:#E4E9EF;border-radius:999px;overflow:hidden">
+  <div style="height:8px;background:#E4E9EF;border-radius:999px;overflow:hidden">
     <div style="height:100%;width:{val}%;background:{color};border-radius:999px"></div>
   </div>
 </div>
-""", height=52, scrolling=False)
+""", height=48, scrolling=False)
 
         if r.get("flag"):
             components.html(f"""
-<div style="background:#FEF0DC;border-radius:11px;padding:14px 16px;display:flex;gap:11px;font-family:'Work Sans',sans-serif">
-  <div style="font-size:16px">⚠</div>
+<div style="background:#FEF0DC;border-radius:11px;padding:12px 14px;display:flex;gap:10px;font-family:'Work Sans',sans-serif">
+  <div style="font-size:15px">⚠</div>
   <div>
-    <div style="font-weight:700;font-size:13px;color:#B0640C">One thing to verify</div>
-    <div style="font:500 13px/1.5 'Work Sans';color:#9A6410;margin-top:2px">{r['flag']}</div>
+    <div style="font-weight:700;font-size:12px;color:#B0640C;text-align:left">One thing to verify</div>
+    <div style="font:500 12px/1.5 'Work Sans';color:#9A6410;margin-top:2px;text-align:left">{r['flag']}</div>
   </div>
 </div>
-""", height=80, scrolling=False)
+""", height=75, scrolling=False)
 
         st.markdown("**Gaps / Concerns**")
         for g in r.get("gaps", []):
             st.markdown(f"- {g}")
 
     with right_col:
-        # AI summary
         components.html(f"""
 <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@500;700&display=swap" rel="stylesheet">
-<div style="background:#0075BC;border-radius:12px;padding:16px 18px;color:#fff;font-family:'Work Sans',sans-serif;margin-bottom:18px">
-  <div style="font-weight:700;font-size:13px;margin-bottom:8px">&#10022; AI summary</div>
-  <div style="font:500 13.5px/1.6 'Work Sans';color:rgba(255,255,255,.92)">{r.get('summary','')}</div>
+<div style="background:#0075BC;border-radius:12px;padding:14px 16px;color:#fff;font-family:'Work Sans',sans-serif;margin-bottom:16px">
+  <div style="font-weight:700;font-size:12px;margin-bottom:7px;text-align:left">&#10022; AI summary</div>
+  <div style="font:500 13px/1.6 'Work Sans';color:rgba(255,255,255,.92);text-align:left">{r.get('summary','')}</div>
 </div>
-""", height=max(120, 60 + len(r.get("summary","")) // 3), scrolling=False)
+""", height=max(110, 55 + len(r.get("summary","")) // 3), scrolling=False)
 
         st.markdown("**Evidence from CV**")
         for ev in r.get("evidence", []):
             components.html(f"""
-<div style="background:#fff;border:1px solid #E4E9EF;border-radius:10px;padding:12px 14px;margin-bottom:10px;font-family:'Work Sans',sans-serif">
-  <div style="font:600 11px 'JetBrains Mono',monospace;color:#0075BC;margin-bottom:4px">{ev.get('label','')}</div>
-  <div style="font:500 13px/1.5 'Work Sans';color:#3A4150">{ev.get('text','')}</div>
+<div style="background:#fff;border:1px solid #E4E9EF;border-radius:10px;padding:10px 13px;margin-bottom:8px;font-family:'Work Sans',sans-serif">
+  <div style="font:600 10px 'JetBrains Mono',monospace;color:#0075BC;margin-bottom:3px;text-align:left">{ev.get('label','')}</div>
+  <div style="font:500 12px/1.5 'Work Sans';color:#3A4150;text-align:left">{ev.get('text','')}</div>
 </div>
-""", height=80, scrolling=False)
+""", height=75, scrolling=False)
