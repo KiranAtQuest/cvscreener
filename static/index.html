@@ -353,6 +353,18 @@ textarea { min-height: 140px; line-height: 1.5; }
   padding: 12px 18px; font-size: 13px; color: var(--orange-dark);
   margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
 }
+.learning-banner {
+  background: var(--green-bg); border: 1.5px solid #A5D6A7; border-radius: var(--radius);
+  padding: 12px 18px; font-size: 13px; color: var(--green);
+  margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+}
+.save-learning-bar {
+  background: var(--blue-bg); border: 1.5px solid #B8DCF0; border-radius: var(--radius);
+  padding: 14px 18px; margin-bottom: 20px;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+}
+.save-learning-bar p { font-size: 13px; color: var(--blue-dark); flex: 1; }
+.save-learning-bar p strong { display: block; font-size: 14px; margin-bottom: 2px; }
 
 /* ── Detail screen ────────────────────────────────────────────── */
 .detail-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start; }
@@ -651,8 +663,16 @@ textarea { min-height: 140px; line-height: 1.5; }
         <div class="stat-pill red" id="stat-rj"></div>
       </div>
     </div>
+    <div class="learning-banner" id="learning-banner" style="display:none"></div>
     <div class="truncate-banner" id="truncate-banner" style="display:none">
       ⚠ Claude's response was truncated (token limit reached). Some candidates may be missing — try screening in smaller batches.
+    </div>
+    <div class="save-learning-bar" id="save-learning-bar" style="display:none">
+      <p>
+        <strong>💡 Save decisions as learning examples</strong>
+        Your shortlist/reject decisions will be saved and used to calibrate Claude for future screenings of this role.
+      </p>
+      <button class="btn-sm blue" id="save-learning-btn" onclick="saveLearningExamples()">Save Examples</button>
     </div>
     <div class="filter-bar">
       <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
@@ -873,6 +893,7 @@ let state = {
   roleTitle: "",
   results: [],
   truncated: false,
+  pastExamplesUsed: 0,
   // per-candidate: key → { shortlisted: bool|null, history: [...], scoreFeedback: {...} }
   decisions: {},
   currentFilter: "all",
@@ -1111,6 +1132,7 @@ async function runScreen() {
     fd.append("jd", jd);
     fd.append("competencies", state.competencies.join("\n"));
     fd.append("calibration", JSON.stringify(state.calibration.map(c => c.note || c)));
+    fd.append("role_title", state.roleTitle);
     for (const f of state.files) fd.append("files", f);
 
     const res = await fetch("/api/screen", { method: "POST", body: fd });
@@ -1121,6 +1143,7 @@ async function runScreen() {
     const data = await res.json();
     state.results = data.results || [];
     state.truncated = data.truncated || false;
+    state.pastExamplesUsed = data.past_examples_used || 0;
 
     // Pre-populate decisions from Claude's initial shortlisted flag
     for (const r of state.results) {
@@ -1156,9 +1179,23 @@ function renderResults() {
 
   const sl = state.results.filter(r => getDecision(r) === true).length;
   const rj = state.results.filter(r => getDecision(r) === false).length;
+  const decided = sl + rj;
   document.getElementById("stat-total").textContent = `${state.results.length} total`;
   document.getElementById("stat-sl").textContent    = `${sl} shortlisted`;
   document.getElementById("stat-rj").textContent    = `${rj} rejected`;
+
+  // Learning banner
+  const lb = document.getElementById("learning-banner");
+  if (state.pastExamplesUsed > 0) {
+    lb.style.display = "";
+    lb.textContent = `🎓 Claude used ${state.pastExamplesUsed} past hiring decisions for "${state.roleTitle}" to calibrate its scoring.`;
+  } else {
+    lb.style.display = "none";
+  }
+
+  // Save-learning bar — show once at least one decision has been made and role title exists
+  const slBar = document.getElementById("save-learning-bar");
+  slBar.style.display = (decided > 0 && state.roleTitle) ? "" : "none";
 
   document.getElementById("truncate-banner").style.display = state.truncated ? "" : "none";
 
@@ -1362,6 +1399,51 @@ function saveCalibNote(idx) {
   state.decisions[k].note = v;
   if (v.trim() && !state.calibration.includes(v.trim())) {
     // Don't auto-add notes to calibration — just store them
+  }
+}
+
+// ── Learning examples ───────────────────────────────────────────────────────────
+async function saveLearningExamples() {
+  const btn = document.getElementById("save-learning-btn");
+  btn.disabled = true; btn.textContent = "Saving…";
+
+  const examples = state.results
+    .map(r => {
+      const dec = getDecision(r);
+      if (dec == null) return null;
+      const k = candKey(r);
+      return {
+        candidate_name: r.name || r.filename || "Unknown",
+        ai_score: r.overall || 0,
+        final_decision: dec === true ? "shortlisted" : "rejected",
+        summary: r.summary || "",
+        strengths: (r.strengths || []).join("; "),
+        gaps: (r.gaps || []).join("; "),
+        recruiter_note: state.decisions[k]?.note || "",
+      };
+    })
+    .filter(Boolean);
+
+  if (!examples.length) {
+    showToast("Make at least one shortlist/reject decision first.");
+    btn.disabled = false; btn.textContent = "Save Examples";
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/feedback", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ role_title: state.roleTitle, examples }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || "Failed");
+    const data = await res.json();
+    btn.textContent = `✓ Saved ${data.saved} examples`;
+    showToast(`✓ ${data.saved} decisions saved as learning examples for "${state.roleTitle}"`);
+    document.getElementById("save-learning-bar").style.display = "none";
+  } catch(e) {
+    showToast("❌ " + e.message, 4000);
+    btn.disabled = false; btn.textContent = "Save Examples";
   }
 }
 

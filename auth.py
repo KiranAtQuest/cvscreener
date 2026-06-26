@@ -62,6 +62,25 @@ def init_db():
                 created_at TEXT NOT NULL
             )
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS screening_examples (
+                id              SERIAL PRIMARY KEY,
+                role_title      TEXT NOT NULL,
+                candidate_name  TEXT NOT NULL,
+                ai_score        INTEGER NOT NULL,
+                final_decision  TEXT NOT NULL,
+                summary         TEXT,
+                strengths       TEXT,
+                gaps            TEXT,
+                recruiter_note  TEXT,
+                created_by      TEXT NOT NULL,
+                created_at      TEXT NOT NULL
+            )
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_examples_role
+            ON screening_examples (lower(role_title))
+        """)
         # Seed default admin on first run
         cur.execute("SELECT id FROM users WHERE username='admin'")
         if not cur.fetchone():
@@ -201,3 +220,85 @@ def delete_calibration_note(note_id: int):
     with _conn() as conn:
         cur = conn.cursor()
         cur.execute("DELETE FROM calibration WHERE id=%s", (note_id,))
+
+# ── Screening examples (JD-specific learning) ──────────────────────────────────
+
+def init_examples_table(cur):
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS screening_examples (
+            id              SERIAL PRIMARY KEY,
+            role_title      TEXT NOT NULL,
+            candidate_name  TEXT NOT NULL,
+            ai_score        INTEGER NOT NULL,
+            final_decision  TEXT NOT NULL,
+            summary         TEXT,
+            strengths       TEXT,
+            gaps            TEXT,
+            recruiter_note  TEXT,
+            created_by      TEXT NOT NULL,
+            created_at      TEXT NOT NULL
+        )
+    """)
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_examples_role
+        ON screening_examples (lower(role_title))
+    """)
+
+def save_screening_examples(role_title: str, examples: list, username: str):
+    """examples: list of dicts with candidate_name, ai_score, final_decision,
+       summary, strengths, gaps, recruiter_note."""
+    now = datetime.now(timezone.utc).isoformat()
+    with _conn() as conn:
+        cur = conn.cursor()
+        init_examples_table(cur)
+        for ex in examples:
+            cur.execute("""
+                INSERT INTO screening_examples
+                  (role_title, candidate_name, ai_score, final_decision,
+                   summary, strengths, gaps, recruiter_note, created_by, created_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            """, (
+                role_title,
+                ex.get("candidate_name", ""),
+                int(ex.get("ai_score", 0)),
+                ex.get("final_decision", ""),
+                ex.get("summary", ""),
+                ex.get("strengths", ""),
+                ex.get("gaps", ""),
+                ex.get("recruiter_note", ""),
+                username,
+                now,
+            ))
+
+def get_screening_examples(role_title: str, limit: int = 20) -> list:
+    """Return the most recent saved examples for this role title."""
+    with _conn() as conn:
+        cur = conn.cursor()
+        try:
+            init_examples_table(cur)
+            cur.execute("""
+                SELECT candidate_name, ai_score, final_decision, summary,
+                       strengths, gaps, recruiter_note, created_at
+                FROM screening_examples
+                WHERE lower(role_title) = lower(%s)
+                ORDER BY id DESC LIMIT %s
+            """, (role_title, limit))
+            return [dict(r) for r in cur.fetchall()]
+        except Exception:
+            return []
+
+def list_example_roles() -> list:
+    """Return distinct role titles that have saved examples, with counts."""
+    with _conn() as conn:
+        cur = conn.cursor()
+        try:
+            init_examples_table(cur)
+            cur.execute("""
+                SELECT role_title, COUNT(*) as count, MAX(created_at) as last_saved
+                FROM screening_examples
+                GROUP BY role_title
+                ORDER BY last_saved DESC
+            """)
+            return [dict(r) for r in cur.fetchall()]
+        except Exception:
+            return []

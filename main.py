@@ -145,7 +145,8 @@ def get_api_key() -> str:
 
 # ── Prompt ─────────────────────────────────────────────────────────────────────
 
-def build_prompt(jd: str, competencies: str, cvs: dict, calibration: list) -> str:
+def build_prompt(jd: str, competencies: str, cvs: dict, calibration: list,
+                 past_examples: list = None) -> str:
     cv_block = "".join(
         f"\n---\nCV #{i} – {name}\n{text}\n"
         for i, (name, text) in enumerate(cvs.items(), 1)
@@ -153,9 +154,29 @@ def build_prompt(jd: str, competencies: str, cvs: dict, calibration: list) -> st
     calibration_block = ""
     if calibration:
         calibration_block = (
-            "\n## Reviewer Calibration (learn from these past adjustments)\n"
-            "Use these to calibrate your scoring for this batch.\n"
+            "\n## Reviewer Calibration Notes\n"
+            "Use these organisational preferences when scoring.\n"
             + "\n".join(f"- {ex}" for ex in calibration[-10:]) + "\n"
+        )
+    examples_block = ""
+    if past_examples:
+        lines = []
+        for ex in past_examples[:15]:
+            dec  = ex.get("final_decision", "").upper()
+            score = ex.get("ai_score", "?")
+            name  = ex.get("candidate_name", "Candidate")
+            summ  = ex.get("summary", "")
+            note  = ex.get("recruiter_note", "")
+            line  = f"- {name} | AI score {score} → {dec}"
+            if summ: line += f" | {summ[:120]}"
+            if note: line += f" | Recruiter note: {note}"
+            lines.append(line)
+        examples_block = (
+            "\n## Past Hiring Decisions for This Role (learn from these)\n"
+            "These are real recruiter decisions for the same role. Calibrate your scoring "
+            "so that candidates similar to SHORTLISTED examples score ≥65 and candidates "
+            "similar to REJECTED examples score <65.\n"
+            + "\n".join(lines) + "\n"
         )
     return f"""You are an expert HR screener for Quest Alliance, an NGO focused on youth skilling in India.
 
@@ -164,7 +185,7 @@ def build_prompt(jd: str, competencies: str, cvs: dict, calibration: list) -> st
 
 ## Required Skill Competencies
 {competencies or "(derive from JD)"}
-{calibration_block}
+{calibration_block}{examples_block}
 ## Candidate CVs
 {cv_block}
 
@@ -424,6 +445,7 @@ async def screen(
     jd: str = Form(...),
     competencies: str = Form(""),
     calibration: str = Form("[]"),
+    role_title: str = Form(""),
     files: List[UploadFile] = File(...),
     qs_token: Optional[str] = Cookie(default=None),
 ):
@@ -435,11 +457,13 @@ async def screen(
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Could not read {f.filename}: {e}")
 
-    client = anthropic.Anthropic(api_key=get_api_key())
     calib = json.loads(calibration)
+    past_examples = _auth.get_screening_examples(role_title) if role_title else []
+
+    client = anthropic.Anthropic(api_key=get_api_key())
     msg = client.messages.create(
         model="claude-opus-4-8", max_tokens=16000,
-        messages=[{"role": "user", "content": build_prompt(jd, competencies, cvs, calib)}]
+        messages=[{"role": "user", "content": build_prompt(jd, competencies, cvs, calib, past_examples)}]
     )
     truncated = msg.stop_reason == "max_tokens"
     raw = msg.content[0].text if msg.content else ""
@@ -449,7 +473,45 @@ async def screen(
         results = extract_json(raw)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Could not parse Claude response: {e}\n\n{raw[:500]}")
-    return {"results": results, "truncated": truncated}
+    return {"results": results, "truncated": truncated, "past_examples_used": len(past_examples)}
+
+
+# ── Feedback / learning routes ─────────────────────────────────────────────────
+
+class FeedbackExample(BaseModel):
+    candidate_name: str
+    ai_score: int
+    final_decision: str   # "shortlisted" or "rejected"
+    summary: str = ""
+    strengths: str = ""
+    gaps: str = ""
+    recruiter_note: str = ""
+
+class FeedbackBody(BaseModel):
+    role_title: str
+    examples: List[FeedbackExample]
+
+@app.post("/api/feedback")
+async def save_feedback(body: FeedbackBody, qs_token: Optional[str] = Cookie(default=None)):
+    user = _auth.get_current_user(qs_token)
+    if not body.role_title.strip():
+        raise HTTPException(status_code=400, detail="role_title is required to save learning examples")
+    _auth.save_screening_examples(
+        body.role_title,
+        [ex.model_dump() for ex in body.examples],
+        user["username"],
+    )
+    return {"saved": len(body.examples), "role_title": body.role_title}
+
+@app.get("/api/feedback/roles")
+async def feedback_roles(qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
+    return _auth.list_example_roles()
+
+@app.get("/api/feedback/{role_title}")
+async def feedback_for_role(role_title: str, qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
+    return _auth.get_screening_examples(role_title)
 
 
 class ExportBody(BaseModel):
