@@ -699,6 +699,7 @@ async function initAuth() {
     if (res.ok) {
       currentUser = await res.json();
       renderNav();
+      await loadCalibration();
       showScreen("setup");
     } else {
       showScreen("login");
@@ -739,6 +740,7 @@ async function doLogin() {
     currentUser = await res.json();
     document.getElementById("login-password").value = "";
     renderNav();
+    await loadCalibration();
     showScreen("setup");
   } catch(e) {
     err.textContent = "Network error. Please try again.";
@@ -1043,27 +1045,51 @@ function removeFile(i) {
   renderFileList();
 }
 
-// ── Setup: Calibration ─────────────────────────────────────────────────────────
-function addCalib() {
+// ── Setup: Calibration (server-persisted) ─────────────────────────────────────
+// state.calibration holds objects: { id, note, created_by }
+
+async function loadCalibration() {
+  try {
+    const res = await fetch("/api/calibration");
+    if (!res.ok) return;
+    const notes = await res.json();
+    state.calibration = notes;
+    renderCalib();
+  } catch {}
+}
+
+async function addCalib() {
   const inp = document.getElementById("calib-input");
   const v = inp.value.trim();
   if (!v) return;
-  state.calibration.push(v);
-  inp.value = "";
-  renderCalib();
+  try {
+    const res = await fetch("/api/calibration", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({note: v}),
+    });
+    if (!res.ok) return;
+    const note = await res.json();
+    state.calibration.push(note);
+    inp.value = "";
+    renderCalib();
+  } catch {}
 }
 
-function removeCalib(i) {
-  state.calibration.splice(i, 1);
-  renderCalib();
+async function removeCalib(id) {
+  try {
+    await fetch(`/api/calibration/${id}`, { method: "DELETE" });
+    state.calibration = state.calibration.filter(c => c.id !== id);
+    renderCalib();
+  } catch {}
 }
 
 function renderCalib() {
   const el = document.getElementById("calib-list");
-  el.innerHTML = state.calibration.map((c, i) =>
+  el.innerHTML = state.calibration.map(c =>
     `<div class="calib-item">
-      <span class="ci-text">${c}</span>
-      <button class="ci-del" onclick="removeCalib(${i})">×</button>
+      <span class="ci-text">${c.note}<span style="color:var(--grey);font-size:10px;margin-left:6px">— ${c.created_by || ''}</span></span>
+      <button class="ci-del" onclick="removeCalib(${c.id})">×</button>
     </div>`
   ).join("");
 }
@@ -1084,7 +1110,7 @@ async function runScreen() {
     const fd = new FormData();
     fd.append("jd", jd);
     fd.append("competencies", state.competencies.join("\n"));
-    fd.append("calibration", JSON.stringify(state.calibration));
+    fd.append("calibration", JSON.stringify(state.calibration.map(c => c.note || c)));
     for (const f of state.files) fd.append("files", f);
 
     const res = await fetch("/api/screen", { method: "POST", body: fd });

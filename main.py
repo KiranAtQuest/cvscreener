@@ -91,6 +91,27 @@ async def admin_delete_user(uid: int, qs_token: Optional[str] = Cookie(default=N
     _auth.delete_user(uid, admin["id"])
     return {"ok": True}
 
+# ── Calibration notes routes ───────────────────────────────────────────────────
+
+class CalibNote(BaseModel):
+    note: str
+
+@app.get("/api/calibration")
+async def get_calibration(qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
+    return _auth.get_calibration_notes()
+
+@app.post("/api/calibration")
+async def add_calibration(body: CalibNote, qs_token: Optional[str] = Cookie(default=None)):
+    user = _auth.get_current_user(qs_token)
+    return _auth.add_calibration_note(body.note, user["username"])
+
+@app.delete("/api/calibration/{note_id}")
+async def delete_calibration(note_id: int, qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
+    _auth.delete_calibration_note(note_id)
+    return {"ok": True}
+
 # ── File parsing ───────────────────────────────────────────────────────────────
 
 def extract_text_from_pdf(b: bytes) -> str:

@@ -38,6 +38,14 @@ def init_db():
                 created_at TEXT NOT NULL
             )
         """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS calibration (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                note       TEXT NOT NULL,
+                created_by TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
         # Seed default admin on first run
         row = c.execute("SELECT id FROM users WHERE username='admin'").fetchone()
         if not row:
@@ -156,3 +164,27 @@ def get_user_by_credentials(username: str, password: str) -> Optional[dict]:
     if not row or not verify_password(password, row["pw_hash"]):
         return None
     return dict(row)
+
+# ── Calibration notes ──────────────────────────────────────────────────────────
+
+def get_calibration_notes() -> list:
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT id, note, created_by, created_at FROM calibration ORDER BY id"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+def add_calibration_note(note: str, username: str) -> dict:
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO calibration (note, created_by, created_at) VALUES (?, ?, ?)",
+            (note.strip(), username, datetime.now(timezone.utc).isoformat())
+        )
+        c.commit()
+        nid = c.execute("SELECT last_insert_rowid()").fetchone()[0]
+    return {"id": nid, "note": note.strip(), "created_by": username}
+
+def delete_calibration_note(note_id: int):
+    with _conn() as c:
+        c.execute("DELETE FROM calibration WHERE id=?", (note_id,))
+        c.commit()
