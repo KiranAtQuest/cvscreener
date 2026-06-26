@@ -1,9 +1,8 @@
 anthropic
-streamlit
+fastapi
+uvicorn[standard]
+python-multipart
 pdfplumber
 python-docx
-pandas
-google-api-python-client
-google-auth
 reportlab
 openpyxl

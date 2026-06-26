@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CV Screener · Quest Alliance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --blue: #0075BC; --blue-bg: #E3F1FA; --blue-dark: #005A91;
+  --orange: #F7941D; --orange-bg: #FEF0DC; --orange-dark: #C76A0A;
+  --red: #F15A29; --red-bg: #FDE7DE; --red-dark: #C23A18;
+  --green: #1B6E2E; --green-bg: #E8F5EC; --green-light: #2E7D32;
+  --danger-red: #C62828; --danger-bg: #FFEBEE;
+  --navy: #1A1A2E; --grey: #5E6675; --light: #F4F7FA; --border: #E4E9EF;
+  --radius: 12px; --shadow: 0 2px 12px rgba(0,0,0,.07);
+}
+html, body { height: 100%; font-family: 'Work Sans', sans-serif; background: var(--light); color: var(--navy); }
+body { display: flex; flex-direction: column; }
+
+/* ── Nav ──────────────────────────────────────────────────────── */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--navy); height: 58px; display: flex; align-items: center;
+  padding: 0 28px; gap: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.18);
+}
+nav .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+nav .logo-mark {
+  width: 32px; height: 32px; border-radius: 8px; background: var(--blue);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px; color: #fff; letter-spacing: -.5px;
+}
+nav .logo-text { font-size: 15px; font-weight: 600; color: #fff; line-height: 1.2; }
+nav .logo-sub { font-size: 11px; color: #9BBDD4; font-weight: 400; }
+nav .spacer { flex: 1; }
+nav .nav-btn {
+  padding: 6px 16px; border-radius: 7px; font-size: 13px; font-weight: 600;
+  cursor: pointer; border: 1.5px solid transparent; transition: .15s;
+  font-family: inherit;
+}
+nav .nav-btn.outline { border-color: #ffffff40; color: #fff; background: transparent; }
+nav .nav-btn.outline:hover { background: #ffffff15; }
+nav .nav-btn.primary { background: var(--blue); color: #fff; }
+nav .nav-btn.primary:hover { background: var(--blue-dark); }
+nav .nav-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ── Screens ──────────────────────────────────────────────────── */
+.screen { display: none; flex: 1; flex-direction: column; }
+.screen.active { display: flex; }
+main { flex: 1; padding: 32px 28px; max-width: 1100px; width: 100%; margin: 0 auto; }
+
+/* ── Setup screen ─────────────────────────────────────────────── */
+.setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+@media (max-width: 760px) { .setup-grid { grid-template-columns: 1fr; } }
+.card {
+  background: #fff; border-radius: var(--radius); border: 1px solid var(--border);
+  box-shadow: var(--shadow); padding: 24px;
+}
+.card h2 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.card .card-sub { font-size: 13px; color: var(--grey); margin-bottom: 20px; }
+label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+textarea, input[type=text] {
+  width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; font-family: inherit; font-size: 13px; color: var(--navy);
+  resize: vertical; transition: border .15s; background: #fff;
+}
+textarea:focus, input[type=text]:focus { outline: none; border-color: var(--blue); }
+textarea { min-height: 140px; line-height: 1.5; }
+
+/* Competency chips */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.chip {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--blue-bg); color: var(--blue-dark);
+  border: 1px solid #B8DCF0; border-radius: 20px; padding: 5px 12px;
+  font-size: 12px; font-weight: 600;
+}
+.chip .chip-del {
+  cursor: pointer; font-size: 14px; line-height: 1; color: var(--blue);
+  background: none; border: none; font-family: inherit; padding: 0;
+}
+.chip-input-row { display: flex; gap: 8px; }
+.chip-input-row input { flex: 1; }
+.btn-sm {
+  padding: 8px 16px; border-radius: 7px; font-size: 13px; font-weight: 600;
+  cursor: pointer; border: none; font-family: inherit; transition: .15s; white-space: nowrap;
+}
+.btn-sm.outline { background: none; border: 1.5px solid var(--border); color: var(--grey); }
+.btn-sm.outline:hover { border-color: var(--blue); color: var(--blue); }
+.btn-sm.blue { background: var(--blue); color: #fff; }
+.btn-sm.blue:hover { background: var(--blue-dark); }
+.btn-sm.blue:disabled { opacity: .45; cursor: not-allowed; }
+.detect-btn { width: 100%; margin-top: 10px; }
+.detect-note { font-size: 11px; color: var(--grey); margin-top: 8px; }
+
+/* Drop zone */
+.dropzone {
+  border: 2px dashed #B8DCF0; border-radius: var(--radius);
+  background: repeating-linear-gradient(135deg,#EAF4FB 0 10px,#fff 10px 20px);
+  padding: 32px 24px; text-align: center; cursor: pointer;
+  transition: border-color .15s, background .15s; position: relative;
+}
+.dropzone.drag-over { border-color: var(--blue); background: var(--blue-bg); }
+.dropzone input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.dropzone .dz-icon { font-size: 32px; margin-bottom: 8px; }
+.dropzone .dz-label { font-size: 14px; font-weight: 600; color: var(--navy); }
+.dropzone .dz-sub { font-size: 12px; color: var(--grey); margin-top: 4px; }
+.file-list { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.file-chip {
+  display: flex; align-items: center; gap: 8px; padding: 7px 12px;
+  background: var(--light); border: 1px solid var(--border); border-radius: 8px;
+  font-size: 12px; font-weight: 500;
+}
+.file-chip .fc-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-chip .fc-size { color: var(--grey); flex-shrink: 0; }
+.file-chip .fc-del {
+  cursor: pointer; background: none; border: none; font-size: 15px;
+  color: var(--grey); line-height: 1; padding: 0; font-family: inherit;
+}
+.file-chip .fc-del:hover { color: var(--danger-red); }
+.err-msg { font-size: 12px; color: var(--danger-red); margin-top: 8px; }
+
+/* Role title */
+.role-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.role-row label { margin: 0; flex-shrink: 0; }
+
+/* Calibration */
+.calib-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; max-height: 180px; overflow-y: auto; }
+.calib-item {
+  display: flex; align-items: flex-start; gap: 8px; padding: 7px 10px;
+  background: var(--light); border: 1px solid var(--border); border-radius: 8px;
+  font-size: 12px;
+}
+.calib-item .ci-text { flex: 1; line-height: 1.5; }
+.calib-item .ci-del { cursor: pointer; background: none; border: none; color: var(--grey); font-size: 14px; flex-shrink: 0; }
+.calib-add-row { display: flex; gap: 8px; }
+.calib-add-row textarea { min-height: 58px; resize: none; }
+
+/* Screen btn */
+.screen-btn-wrap { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 12px; }
+.screen-btn {
+  padding: 12px 32px; border-radius: 9px; font-size: 15px; font-weight: 700;
+  cursor: pointer; border: none; font-family: inherit; transition: .15s;
+}
+.screen-btn.primary { background: var(--blue); color: #fff; }
+.screen-btn.primary:hover { background: var(--blue-dark); }
+.screen-btn.primary:disabled { opacity: .45; cursor: not-allowed; }
+.screen-btn.outline { background: none; border: 2px solid var(--border); color: var(--grey); }
+.screen-btn.outline:hover { border-color: var(--blue); color: var(--blue); }
+
+/* Progress overlay */
+.progress-overlay {
+  position: fixed; inset: 0; background: #1A1A2Ecc; backdrop-filter: blur(3px);
+  display: none; align-items: center; justify-content: center; z-index: 200;
+}
+.progress-overlay.show { display: flex; }
+.progress-box {
+  background: #fff; border-radius: 16px; padding: 40px 48px;
+  text-align: center; max-width: 380px; width: 90%;
+}
+.progress-box .pb-icon { font-size: 44px; margin-bottom: 16px; }
+.progress-box h3 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.progress-box p { font-size: 13px; color: var(--grey); line-height: 1.5; }
+.pb-spinner {
+  width: 40px; height: 40px; border: 4px solid var(--blue-bg);
+  border-top-color: var(--blue); border-radius: 50%;
+  animation: spin .8s linear infinite; margin: 0 auto 20px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Results screen ───────────────────────────────────────────── */
+.results-header {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;
+}
+.results-header h1 { font-size: 20px; font-weight: 700; flex: 1; }
+.results-stats { display: flex; gap: 12px; flex-wrap: wrap; }
+.stat-pill {
+  padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
+  border: 1.5px solid var(--border); background: #fff;
+}
+.stat-pill.blue { background: var(--blue-bg); color: var(--blue-dark); border-color: #B8DCF0; }
+.stat-pill.green { background: var(--green-bg); color: var(--green); border-color: #A5D6A7; }
+.stat-pill.red { background: var(--danger-bg); color: var(--danger-red); border-color: #FFCDD2; }
+
+.filter-bar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+.filter-btn {
+  padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  cursor: pointer; border: 1.5px solid var(--border); background: #fff;
+  color: var(--grey); font-family: inherit; transition: .15s;
+}
+.filter-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+.candidate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+/* Candidate card */
+.cand-card {
+  background: #fff; border-radius: var(--radius); border: 1.5px solid var(--border);
+  box-shadow: var(--shadow); cursor: pointer; overflow: hidden;
+  transition: transform .12s, box-shadow .12s, border-color .12s;
+}
+.cand-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.1); border-color: #B8DCF0; }
+.cand-card.shortlisted { border-color: #A5D6A7; }
+.cand-card.rejected { border-color: #FFCDD2; }
+.cc-top { padding: 16px; display: flex; gap: 14px; align-items: flex-start; }
+.cc-ring { position: relative; flex-shrink: 0; }
+.cc-ring svg { display: block; }
+.cc-score-text {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; line-height: 1.1;
+}
+.cc-score-text .sv { font-size: 15px; font-weight: 700; }
+.cc-score-text .sl { font-size: 9px; color: var(--grey); }
+.cc-info { flex: 1; min-width: 0; }
+.cc-name { font-size: 14px; font-weight: 700; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cc-role { font-size: 12px; color: var(--grey); margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cc-meta { display: flex; gap: 10px; font-size: 11px; color: var(--grey); }
+.cc-meta span { display: flex; align-items: center; gap: 3px; }
+.cc-summary { padding: 0 16px 12px; font-size: 12px; color: #444; line-height: 1.5; }
+.cc-footer { border-top: 1px solid var(--border); padding: 10px 14px; display: flex; gap: 8px; }
+.cc-action {
+  flex: 1; padding: 7px; border-radius: 7px; font-size: 12px; font-weight: 700;
+  cursor: pointer; border: 1.5px solid var(--border); background: #fff;
+  color: var(--grey); font-family: inherit; transition: .15s;
+}
+.cc-action:hover { border-color: #bbb; }
+.cc-action.sl-active { background: var(--green); color: #fff; border-color: var(--green); }
+.cc-action.rj-active { background: var(--danger-red); color: #fff; border-color: var(--danger-red); }
+.cc-action.sl-active:hover { background: #145222; border-color: #145222; }
+.cc-action.rj-active:hover { background: #a01f1f; border-color: #a01f1f; }
+
+.truncate-banner {
+  background: var(--orange-bg); border: 1.5px solid #F7BD5E; border-radius: var(--radius);
+  padding: 12px 18px; font-size: 13px; color: var(--orange-dark);
+  margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+}
+
+/* ── Detail screen ────────────────────────────────────────────── */
+.detail-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start; }
+@media (max-width: 820px) { .detail-layout { grid-template-columns: 1fr; } }
+.detail-main { display: flex; flex-direction: column; gap: 20px; }
+.detail-sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+.detail-hero { display: flex; gap: 20px; align-items: flex-start; }
+.dh-ring { flex-shrink: 0; }
+.dh-info h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+.dh-info .dh-role { font-size: 14px; color: var(--grey); margin-bottom: 10px; }
+.dh-meta { display: flex; flex-wrap: wrap; gap: 10px; }
+.meta-pill {
+  display: flex; align-items: center; gap: 5px; padding: 4px 12px;
+  background: var(--light); border: 1px solid var(--border); border-radius: 20px;
+  font-size: 12px; color: var(--grey);
+}
+
+.section-title {
+  font-size: 13px; font-weight: 700; color: var(--blue); text-transform: uppercase;
+  letter-spacing: .5px; margin-bottom: 10px;
+}
+.summary-text { font-size: 14px; line-height: 1.7; color: #333; }
+
+.sg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sg-box {
+  border-radius: 10px; padding: 14px;
+}
+.sg-box.strengths { background: var(--green-bg); border: 1px solid #A5D6A7; }
+.sg-box.gaps { background: var(--danger-bg); border: 1px solid #FFCDD2; }
+.sg-box h4 { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+.sg-box.strengths h4 { color: var(--green); }
+.sg-box.gaps h4 { color: var(--danger-red); }
+.sg-list { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.sg-list li { font-size: 12px; line-height: 1.5; color: #333; padding-left: 14px; position: relative; }
+.sg-list li::before { content: '•'; position: absolute; left: 0; }
+.sg-box.strengths .sg-list li::before { color: var(--green); }
+.sg-box.gaps .sg-list li::before { color: var(--danger-red); }
+
+.comp-bars { display: flex; flex-direction: column; gap: 12px; }
+.comp-row { }
+.comp-label-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; }
+.comp-label { font-weight: 600; color: var(--navy); }
+.comp-val { font-weight: 700; }
+.bar-track { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width .6s ease; }
+
+.evidence-list { display: flex; flex-direction: column; gap: 10px; }
+.ev-item { border-left: 3px solid var(--blue); padding: 8px 12px; background: var(--blue-bg); border-radius: 0 8px 8px 0; }
+.ev-label { font-size: 11px; font-weight: 700; color: var(--blue-dark); text-transform: uppercase; margin-bottom: 4px; }
+.ev-text { font-size: 13px; color: #333; line-height: 1.5; font-style: italic; }
+
+.flag-box { background: var(--orange-bg); border: 1px solid #F7BD5E; border-radius: 10px; padding: 12px 14px; }
+.flag-box .flag-label { font-size: 11px; font-weight: 700; color: var(--orange-dark); text-transform: uppercase; margin-bottom: 4px; }
+.flag-box .flag-text { font-size: 13px; color: var(--orange-dark); line-height: 1.5; }
+
+/* Sidebar */
+.score-box { background: #fff; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); padding: 20px; text-align: center; }
+.score-big { font-size: 48px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+.score-label { font-size: 12px; color: var(--grey); margin-bottom: 16px; }
+.band-badge { display: inline-block; padding: 5px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; margin-bottom: 16px; }
+.action-btns { display: flex; flex-direction: column; gap: 8px; }
+.action-btn {
+  padding: 11px; border-radius: 8px; font-size: 13px; font-weight: 700;
+  cursor: pointer; border: 1.5px solid var(--border); background: #fff;
+  color: var(--grey); font-family: inherit; transition: .15s; width: 100%;
+}
+.action-btn:hover { border-color: #bbb; }
+.action-btn.sl-active { background: var(--green); color: #fff; border-color: var(--green); }
+.action-btn.rj-active { background: var(--danger-red); color: #fff; border-color: var(--danger-red); }
+
+.contact-box { background: #fff; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); padding: 16px; }
+.contact-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.contact-row:last-child { border: none; }
+.contact-row .cr-label { width: 50px; font-size: 11px; font-weight: 700; color: var(--grey); }
+.contact-row .cr-val { flex: 1; color: var(--navy); overflow: hidden; text-overflow: ellipsis; }
+
+/* Calibration input in detail */
+.calib-feedback {
+  background: #fff; border-radius: var(--radius); border: 1px solid var(--border);
+  box-shadow: var(--shadow); padding: 16px;
+}
+.calib-feedback textarea { min-height: 70px; resize: none; margin-bottom: 8px; font-size: 12px; }
+
+/* toast */
+.toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(100px);
+  background: var(--navy); color: #fff; padding: 10px 22px; border-radius: 24px;
+  font-size: 14px; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  transition: transform .3s ease; z-index: 999; white-space: nowrap;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- ── Nav ─────────────────────────────────────────────────────── -->
+<nav>
+  <a class="logo" href="#" onclick="goSetup(); return false;">
+    <div class="logo-mark">QA</div>
+    <div>
+      <div class="logo-text">CV Screener</div>
+      <div class="logo-sub">Quest Alliance</div>
+    </div>
+  </a>
+  <div class="spacer"></div>
+  <button class="nav-btn outline" id="nav-export-pdf" style="display:none" onclick="exportPDF()">⬇ PDF</button>
+  <button class="nav-btn outline" id="nav-export-xl" style="display:none" onclick="exportExcel()">⬇ Excel</button>
+  <button class="nav-btn primary" id="nav-new" style="display:none" onclick="goSetup()">＋ New Screening</button>
+</nav>
+
+<!-- ── Setup screen ────────────────────────────────────────────── -->
+<div class="screen active" id="screen-setup">
+  <main>
+    <div class="setup-grid">
+
+      <!-- JD card -->
+      <div class="card">
+        <h2>Job Description</h2>
+        <div class="card-sub">Paste the full job description. Claude will extract competencies.</div>
+        <label for="jd-input">Job Description</label>
+        <textarea id="jd-input" placeholder="Paste the job description here…" rows="8"></textarea>
+        <div style="margin-top:12px">
+          <label>Role Title (optional)</label>
+          <input type="text" id="role-title" placeholder="e.g. Programme Manager – Skilling">
+        </div>
+      </div>
+
+      <!-- Competencies card -->
+      <div class="card">
+        <h2>Skill Competencies</h2>
+        <div class="card-sub">5 competencies to score each CV on. Auto-detected from JD or add manually.</div>
+        <div class="chips" id="comp-chips"></div>
+        <div class="chip-input-row" id="comp-add-row" style="display:none">
+          <input type="text" id="comp-input" placeholder="Add competency…" maxlength="60"
+            onkeydown="if(event.key==='Enter'){addCompetency();event.preventDefault()}">
+          <button class="btn-sm blue" onclick="addCompetency()">Add</button>
+        </div>
+        <button class="btn-sm blue detect-btn" id="detect-btn" onclick="detectCompetencies()">
+          ✨ Auto-detect from JD
+        </button>
+        <div class="detect-note" id="detect-note">Needs a job description to detect competencies.</div>
+      </div>
+
+      <!-- Upload card -->
+      <div class="card">
+        <h2>CV Files</h2>
+        <div class="card-sub">Upload PDF, DOCX or DOC files. Max 30 CVs per screening.</div>
+        <div class="dropzone" id="dropzone"
+             ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event)">
+          <input type="file" id="file-input" accept=".pdf,.doc,.docx" multiple onchange="filesChosen(event)">
+          <div class="dz-icon">📄</div>
+          <div class="dz-label">Drag &amp; drop CVs or click to browse</div>
+          <div class="dz-sub">PDF, DOCX, DOC · up to 30 files</div>
+        </div>
+        <div class="file-list" id="file-list"></div>
+        <div class="err-msg" id="file-err"></div>
+      </div>
+
+      <!-- Calibration card -->
+      <div class="card">
+        <h2>Reviewer Calibration <span style="font-weight:400;color:var(--grey);font-size:13px">(optional)</span></h2>
+        <div class="card-sub">Add past reviewer notes to calibrate Claude's scoring to your standards.</div>
+        <div class="calib-list" id="calib-list"></div>
+        <div class="calib-add-row">
+          <textarea id="calib-input" placeholder="e.g. We value field experience over qualifications…" rows="2"></textarea>
+          <button class="btn-sm blue" style="align-self:flex-end" onclick="addCalib()">Add</button>
+        </div>
+      </div>
+
+      <div class="screen-btn-wrap">
+        <button class="screen-btn primary" id="screen-btn" onclick="runScreen()">
+          Screen CVs →
+        </button>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ── Results screen ──────────────────────────────────────────── -->
+<div class="screen" id="screen-results">
+  <main>
+    <div class="results-header">
+      <h1 id="results-title">Screening Results</h1>
+      <div class="results-stats">
+        <div class="stat-pill blue" id="stat-total"></div>
+        <div class="stat-pill green" id="stat-sl"></div>
+        <div class="stat-pill red" id="stat-rj"></div>
+      </div>
+    </div>
+    <div class="truncate-banner" id="truncate-banner" style="display:none">
+      ⚠ Claude's response was truncated (token limit reached). Some candidates may be missing — try screening in smaller batches.
+    </div>
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+      <button class="filter-btn" onclick="setFilter('shortlisted', this)">Shortlisted</button>
+      <button class="filter-btn" onclick="setFilter('pending', this)">Pending</button>
+      <button class="filter-btn" onclick="setFilter('rejected', this)">Rejected</button>
+    </div>
+    <div class="candidate-grid" id="candidate-grid"></div>
+  </main>
+</div>
+
+<!-- ── Detail screen ───────────────────────────────────────────── -->
+<div class="screen" id="screen-detail">
+  <main>
+    <div style="margin-bottom:20px">
+      <button class="btn-sm outline" onclick="goResults()">← Back to Results</button>
+    </div>
+    <div class="detail-layout">
+      <div class="detail-main" id="detail-main"></div>
+      <div class="detail-sidebar" id="detail-sidebar"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ── Progress overlay ────────────────────────────────────────── -->
+<div class="progress-overlay" id="progress-overlay">
+  <div class="progress-box">
+    <div class="pb-spinner"></div>
+    <h3 id="pb-title">Screening CVs…</h3>
+    <p id="pb-msg">Claude is reading every CV against your job description. This may take a minute.</p>
+  </div>
+</div>
+
+<!-- ── Toast ───────────────────────────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let state = {
+  competencies: [],
+  files: [],          // File objects
+  calibration: [],
+  roleTitle: "",
+  results: [],
+  truncated: false,
+  // per-candidate: key → { shortlisted: bool|null, history: [...], scoreFeedback: {...} }
+  decisions: {},
+  currentFilter: "all",
+  detailIdx: null,
+};
+
+// ── Utilities ──────────────────────────────────────────────────────────────────
+function candKey(r) { return r.filename || r.name || String(r.rank); }
+
+function band(score) {
+  if (score >= 85) return { name: "Strong", bg: "#E3F1FA", fg: "#005A91", ring: "#0075BC" };
+  if (score >= 65) return { name: "Possible", bg: "#FEF0DC", fg: "#C76A0A", ring: "#F7941D" };
+  return { name: "Weak", bg: "#FDE7DE", fg: "#C23A18", ring: "#F15A29" };
+}
+
+function fmtSize(b) {
+  if (b < 1024) return b + " B";
+  if (b < 1048576) return (b/1024).toFixed(0) + " KB";
+  return (b/1048576).toFixed(1) + " MB";
+}
+
+function scoreRingSVG(score, size, b, textClass) {
+  const r = (size - 6) / 2, cx = size/2, cy = size/2;
+  const circ = 2 * Math.PI * r;
+  const dash = (score / 100) * circ;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="transform:rotate(-90deg)">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#E4E9EF" stroke-width="5"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${b.ring}" stroke-width="5"
+      stroke-dasharray="${dash} ${circ}" stroke-linecap="round"/>
+  </svg>
+  <div class="cc-score-text ${textClass}">
+    <span class="sv" style="color:${b.fg}">${score}</span>
+    <span class="sl">/100</span>
+  </div>`;
+}
+
+function showToast(msg, dur = 2200) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), dur);
+}
+
+function showProgress(title, msg) {
+  document.getElementById("pb-title").textContent = title;
+  document.getElementById("pb-msg").textContent = msg;
+  document.getElementById("progress-overlay").classList.add("show");
+}
+function hideProgress() { document.getElementById("progress-overlay").classList.remove("show"); }
+
+// ── Screens ────────────────────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById("screen-" + id).classList.add("active");
+  const isResults = id === "results" || id === "detail";
+  document.getElementById("nav-export-pdf").style.display = isResults ? "" : "none";
+  document.getElementById("nav-export-xl").style.display  = isResults ? "" : "none";
+  document.getElementById("nav-new").style.display = isResults ? "" : "none";
+  window.scrollTo(0, 0);
+}
+function goSetup()   { showScreen("setup"); }
+function goResults() { showScreen("results"); renderResults(); }
+
+// ── Setup: Competencies ────────────────────────────────────────────────────────
+function renderChips() {
+  const el = document.getElementById("comp-chips");
+  el.innerHTML = state.competencies.map((c, i) =>
+    `<div class="chip">${c}<button class="chip-del" onclick="removeComp(${i})">×</button></div>`
+  ).join("");
+  const addRow = document.getElementById("comp-add-row");
+  addRow.style.display = state.competencies.length < 5 ? "flex" : "none";
+}
+
+function addCompetency() {
+  const inp = document.getElementById("comp-input");
+  const v = inp.value.trim();
+  if (!v || state.competencies.length >= 5) return;
+  if (!state.competencies.includes(v)) state.competencies.push(v);
+  inp.value = "";
+  renderChips();
+}
+
+function removeComp(i) {
+  state.competencies.splice(i, 1);
+  renderChips();
+}
+
+async function detectCompetencies() {
+  const jd = document.getElementById("jd-input").value.trim();
+  if (!jd) { document.getElementById("detect-note").textContent = "Please enter a job description first."; return; }
+  const btn = document.getElementById("detect-btn");
+  btn.disabled = true; btn.textContent = "Detecting…";
+  document.getElementById("detect-note").textContent = "";
+  try {
+    const fd = new FormData(); fd.append("jd", jd);
+    const res = await fetch("/api/detect-competencies", { method: "POST", body: fd });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    const data = await res.json();
+    state.competencies = data.competencies.slice(0, 5);
+    renderChips();
+    document.getElementById("detect-note").textContent = "✓ Competencies detected. You can edit them.";
+  } catch(e) {
+    document.getElementById("detect-note").textContent = "❌ " + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = "✨ Auto-detect from JD";
+  }
+}
+
+// ── Setup: Files ───────────────────────────────────────────────────────────────
+function dzOver(e) { e.preventDefault(); document.getElementById("dropzone").classList.add("drag-over"); }
+function dzLeave()  { document.getElementById("dropzone").classList.remove("drag-over"); }
+function dzDrop(e)  { e.preventDefault(); dzLeave(); addFiles(Array.from(e.dataTransfer.files)); }
+function filesChosen(e) { addFiles(Array.from(e.target.files)); e.target.value = ""; }
+
+function addFiles(newFiles) {
+  const err = document.getElementById("file-err");
+  err.textContent = "";
+  const allowed = [".pdf",".doc",".docx"];
+  const valid = [];
+  const invalid = [];
+  for (const f of newFiles) {
+    const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
+    if (!allowed.includes(ext)) { invalid.push(f.name); continue; }
+    if (!state.files.find(x => x.name === f.name)) valid.push(f);
+  }
+  if (invalid.length) err.textContent = "Skipped (unsupported): " + invalid.join(", ");
+  if (state.files.length + valid.length > 30) {
+    err.textContent = "Maximum 30 CVs per screening.";
+    state.files = [...state.files, ...valid].slice(0, 30);
+  } else {
+    state.files = [...state.files, ...valid];
+  }
+  renderFileList();
+}
+
+function renderFileList() {
+  const el = document.getElementById("file-list");
+  el.innerHTML = state.files.map((f, i) =>
+    `<div class="file-chip">
+      <span>📄</span>
+      <span class="fc-name">${f.name}</span>
+      <span class="fc-size">${fmtSize(f.size)}</span>
+      <button class="fc-del" onclick="removeFile(${i})">×</button>
+    </div>`
+  ).join("");
+}
+
+function removeFile(i) {
+  state.files.splice(i, 1);
+  renderFileList();
+}
+
+// ── Setup: Calibration ─────────────────────────────────────────────────────────
+function addCalib() {
+  const inp = document.getElementById("calib-input");
+  const v = inp.value.trim();
+  if (!v) return;
+  state.calibration.push(v);
+  inp.value = "";
+  renderCalib();
+}
+
+function removeCalib(i) {
+  state.calibration.splice(i, 1);
+  renderCalib();
+}
+
+function renderCalib() {
+  const el = document.getElementById("calib-list");
+  el.innerHTML = state.calibration.map((c, i) =>
+    `<div class="calib-item">
+      <span class="ci-text">${c}</span>
+      <button class="ci-del" onclick="removeCalib(${i})">×</button>
+    </div>`
+  ).join("");
+}
+
+// ── Screen CVs ─────────────────────────────────────────────────────────────────
+async function runScreen() {
+  const jd = document.getElementById("jd-input").value.trim();
+  if (!jd) { showToast("Please enter a job description."); return; }
+  if (state.files.length === 0) { showToast("Please upload at least one CV."); return; }
+
+  state.roleTitle = document.getElementById("role-title").value.trim();
+  state.decisions = {};
+
+  showProgress("Screening CVs…",
+    `Claude is reading ${state.files.length} CV${state.files.length>1?"s":""} against your job description. This may take a minute.`);
+
+  try {
+    const fd = new FormData();
+    fd.append("jd", jd);
+    fd.append("competencies", state.competencies.join("\n"));
+    fd.append("calibration", JSON.stringify(state.calibration));
+    for (const f of state.files) fd.append("files", f);
+
+    const res = await fetch("/api/screen", { method: "POST", body: fd });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || res.statusText);
+    }
+    const data = await res.json();
+    state.results = data.results || [];
+    state.truncated = data.truncated || false;
+
+    // Pre-populate decisions from Claude's initial shortlisted flag
+    for (const r of state.results) {
+      const k = candKey(r);
+      state.decisions[k] = { shortlisted: r.shortlisted === true ? true : r.shortlisted === false ? null : null };
+    }
+
+    hideProgress();
+    renderResults();
+    showScreen("results");
+  } catch(e) {
+    hideProgress();
+    showToast("❌ " + e.message, 5000);
+  }
+}
+
+// ── Results ────────────────────────────────────────────────────────────────────
+function setFilter(f, btn) {
+  state.currentFilter = f;
+  document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  renderResults();
+}
+
+function getDecision(r) {
+  const k = candKey(r);
+  return state.decisions[k]?.shortlisted;   // true | false | null/undefined
+}
+
+function renderResults() {
+  const title = document.getElementById("results-title");
+  title.textContent = state.roleTitle ? `Results — ${state.roleTitle}` : "Screening Results";
+
+  const sl = state.results.filter(r => getDecision(r) === true).length;
+  const rj = state.results.filter(r => getDecision(r) === false).length;
+  document.getElementById("stat-total").textContent = `${state.results.length} total`;
+  document.getElementById("stat-sl").textContent    = `${sl} shortlisted`;
+  document.getElementById("stat-rj").textContent    = `${rj} rejected`;
+
+  document.getElementById("truncate-banner").style.display = state.truncated ? "" : "none";
+
+  let visible = state.results;
+  if (state.currentFilter === "shortlisted") visible = state.results.filter(r => getDecision(r) === true);
+  else if (state.currentFilter === "rejected") visible = state.results.filter(r => getDecision(r) === false);
+  else if (state.currentFilter === "pending")  visible = state.results.filter(r => getDecision(r) == null);
+
+  const grid = document.getElementById("candidate-grid");
+  grid.innerHTML = visible.map((r, _) => {
+    const realIdx = state.results.indexOf(r);
+    const sc = r.overall || 0;
+    const b = band(sc);
+    const dec = getDecision(r);
+    const cardClass = dec === true ? "shortlisted" : dec === false ? "rejected" : "";
+    const slClass = dec === true ? "sl-active" : "";
+    const rjClass = dec === false ? "rj-active" : "";
+    const name = r.name || r.filename || "—";
+    const role = r.role || "—";
+    const yrs  = r.years != null ? r.years + " yrs" : "";
+    const loc  = r.location || "";
+
+    return `<div class="cand-card ${cardClass}" onclick="openDetail(${realIdx})">
+      <div class="cc-top">
+        <div class="cc-ring" style="width:58px;height:58px;position:relative">
+          ${scoreRingSVG(sc, 58, b, "")}
+        </div>
+        <div class="cc-info">
+          <div class="cc-name">${name}</div>
+          <div class="cc-role">${role}</div>
+          <div class="cc-meta">
+            ${yrs ? `<span>⏱ ${yrs}</span>` : ""}
+            ${loc ? `<span>📍 ${loc}</span>` : ""}
+          </div>
+        </div>
+      </div>
+      <div class="cc-summary">${(r.summary||"").slice(0,120)}${(r.summary||"").length>120?"…":""}</div>
+      <div class="cc-footer" onclick="event.stopPropagation()">
+        <button class="cc-action ${slClass}" onclick="toggleDecision(${realIdx},'shortlist')">
+          ${dec === true ? "✓ Shortlisted" : "Shortlist"}
+        </button>
+        <button class="cc-action ${rjClass}" onclick="toggleDecision(${realIdx},'reject')">
+          ${dec === false ? "✗ Rejected" : "Reject"}
+        </button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function toggleDecision(idx, action) {
+  const r = state.results[idx];
+  const k = candKey(r);
+  if (!state.decisions[k]) state.decisions[k] = {};
+  const cur = state.decisions[k].shortlisted;
+  if (action === "shortlist") {
+    state.decisions[k].shortlisted = cur === true ? null : true;
+  } else {
+    state.decisions[k].shortlisted = cur === false ? null : false;
+  }
+  const ts = new Date().toISOString();
+  const hist = state.decisions[k].history = state.decisions[k].history || [];
+  hist.push({ name: r.name || r.filename, action, ts });
+
+  renderResults();
+  if (state.detailIdx === idx) renderDetail(idx);
+}
+
+// ── Detail ─────────────────────────────────────────────────────────────────────
+function openDetail(idx) {
+  state.detailIdx = idx;
+  renderDetail(idx);
+  showScreen("detail");
+}
+
+function renderDetail(idx) {
+  const r = state.results[idx];
+  if (!r) return;
+  const sc = r.overall || 0;
+  const b  = band(sc);
+  const dec = getDecision(r);
+  const k = candKey(r);
+
+  // Main column
+  const name = r.name || r.filename || "—";
+  const comps = r.competency_labels || [];
+  const scores = r.scores || [];
+
+  const mainHTML = `
+    <div class="card detail-hero">
+      <div class="dh-ring" style="width:80px;height:80px;position:relative">
+        ${scoreRingSVG(sc, 80, b, "")}
+      </div>
+      <div class="dh-info">
+        <h1>${name}</h1>
+        <div class="dh-role">${r.role || "—"} · Rank #${r.rank || "—"}</div>
+        <div class="dh-meta">
+          ${r.years != null ? `<div class="meta-pill">⏱ ${r.years} yrs exp</div>` : ""}
+          ${r.location ? `<div class="meta-pill">📍 ${r.location}</div>` : ""}
+          ${r.email ? `<div class="meta-pill">✉ ${r.email}</div>` : ""}
+          ${r.phone ? `<div class="meta-pill">📞 ${r.phone}</div>` : ""}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Summary</div>
+      <div class="summary-text">${r.summary || "—"}</div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Strengths &amp; Gaps</div>
+      <div class="sg-grid">
+        <div class="sg-box strengths">
+          <h4>✓ Strengths</h4>
+          <ul class="sg-list">${(r.strengths||[]).map(s=>`<li>${s}</li>`).join("")||"<li>—</li>"}</ul>
+        </div>
+        <div class="sg-box gaps">
+          <h4>✗ Gaps</h4>
+          <ul class="sg-list">${(r.gaps||[]).map(g=>`<li>${g}</li>`).join("")||"<li>—</li>"}</ul>
+        </div>
+      </div>
+    </div>
+
+    ${comps.length ? `<div class="card">
+      <div class="section-title">Competency Scores</div>
+      <div class="comp-bars">
+        ${comps.map((c, i) => {
+          const s = scores[i] || 0;
+          const bc = band(s);
+          return `<div class="comp-row">
+            <div class="comp-label-row">
+              <span class="comp-label">${c}</span>
+              <span class="comp-val" style="color:${bc.fg}">${s}/100</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:${s}%;background:${bc.ring}"></div>
+            </div>
+          </div>`;
+        }).join("")}
+      </div>
+    </div>` : ""}
+
+    ${(r.evidence||[]).length ? `<div class="card">
+      <div class="section-title">Evidence from CV</div>
+      <div class="evidence-list">
+        ${(r.evidence||[]).map(ev=>`<div class="ev-item">
+          <div class="ev-label">${ev.label||""}</div>
+          <div class="ev-text">"${ev.text||""}"</div>
+        </div>`).join("")}
+      </div>
+    </div>` : ""}
+
+    ${r.flag ? `<div class="flag-box">
+      <div class="flag-label">⚑ Flag to verify</div>
+      <div class="flag-text">${r.flag}</div>
+    </div>` : ""}
+  `;
+
+  // Sidebar
+  const slClass = dec === true ? "sl-active" : "";
+  const rjClass = dec === false ? "rj-active" : "";
+
+  const sideHTML = `
+    <div class="score-box">
+      <div class="score-big" style="color:${b.fg}">${sc}</div>
+      <div class="score-label">Overall match score</div>
+      <div class="band-badge" style="background:${b.bg};color:${b.fg}">${b.name}</div>
+      <div class="action-btns">
+        <button class="action-btn ${slClass}" onclick="toggleDecision(${idx},'shortlist')">
+          ${dec === true ? "✓ Shortlisted" : "Shortlist"}
+        </button>
+        <button class="action-btn ${rjClass}" onclick="toggleDecision(${idx},'reject')">
+          ${dec === false ? "✗ Rejected" : "Reject"}
+        </button>
+      </div>
+    </div>
+
+    ${(r.email || r.phone) ? `<div class="contact-box">
+      <div class="section-title" style="margin-bottom:8px">Contact</div>
+      ${r.email ? `<div class="contact-row"><span class="cr-label">Email</span><span class="cr-val">${r.email}</span></div>` : ""}
+      ${r.phone ? `<div class="contact-row"><span class="cr-label">Phone</span><span class="cr-val">${r.phone}</span></div>` : ""}
+    </div>` : ""}
+
+    <div class="calib-feedback">
+      <div class="section-title" style="margin-bottom:8px">Reviewer Note</div>
+      <textarea id="calib-note" placeholder="Add a calibration note for future screenings…"
+        onblur="saveCalibNote(${idx})">${state.decisions[k]?.note||""}</textarea>
+      <button class="btn-sm blue" style="width:100%" onclick="saveCalibNote(${idx});showToast('Note saved')">Save Note</button>
+    </div>
+  `;
+
+  document.getElementById("detail-main").innerHTML = mainHTML;
+  document.getElementById("detail-sidebar").innerHTML = sideHTML;
+}
+
+function saveCalibNote(idx) {
+  const r = state.results[idx];
+  const k = candKey(r);
+  const v = (document.getElementById("calib-note")||{}).value||"";
+  if (!state.decisions[k]) state.decisions[k] = {};
+  state.decisions[k].note = v;
+  if (v.trim() && !state.calibration.includes(v.trim())) {
+    // Don't auto-add notes to calibration — just store them
+  }
+}
+
+// ── Export ─────────────────────────────────────────────────────────────────────
+function buildExportBody() {
+  // Merge reviewer decisions back into results for export
+  const merged = state.results.map(r => {
+    const k = candKey(r);
+    const dec = state.decisions[k];
+    return { ...r, shortlisted: dec?.shortlisted ?? r.shortlisted };
+  });
+  const history = {};
+  for (const [k, v] of Object.entries(state.decisions)) {
+    if (v.history?.length) history[k] = v.history;
+  }
+  return { results: merged, role_title: state.roleTitle, history, score_feedback: {} };
+}
+
+async function exportPDF() {
+  showProgress("Generating PDF…", "Building your screening report.");
+  try {
+    const res = await fetch("/api/export/pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildExportBody()),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    const blob = await res.blob();
+    download(blob, `CV_Screening_${today()}.pdf`);
+  } catch(e) { showToast("❌ " + e.message, 4000); }
+  finally { hideProgress(); }
+}
+
+async function exportExcel() {
+  showProgress("Generating Excel…", "Building your screening spreadsheet.");
+  try {
+    const res = await fetch("/api/export/excel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildExportBody()),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    const blob = await res.blob();
+    download(blob, `CV_Screening_${today()}.xlsx`);
+  } catch(e) { showToast("❌ " + e.message, 4000); }
+  finally { hideProgress(); }
+}
+
+function download(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name; document.body.appendChild(a);
+  a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+function today() {
+  return new Date().toISOString().slice(0,10);
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+renderChips();
+renderCalib();
+renderFileList();
+</script>
+</body>
+</html>
