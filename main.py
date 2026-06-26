@@ -10,12 +10,86 @@ from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, Table, TableStyle
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import Response, FileResponse
+from fastapi import Cookie, Depends, FastAPI, UploadFile, File, Form, HTTPException, Response as FResponse
+from fastapi.responses import Response, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import auth as _auth
+
 app = FastAPI(title="CV Screener – Quest Alliance")
+
+# ── Startup ────────────────────────────────────────────────────────────────────
+@app.on_event("startup")
+def startup():
+    _auth.init_db()
+
+# ── Auth routes ────────────────────────────────────────────────────────────────
+
+@app.post("/api/auth/login")
+async def login(
+    username: str = Form(...),
+    password: str = Form(...),
+    response: FResponse = None,
+):
+    user = _auth.get_user_by_credentials(username, password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    token = _auth.create_token(user["id"], user["username"], user["role"])
+    resp = JSONResponse({"username": user["username"], "role": user["role"], "email": user["email"]})
+    resp.set_cookie(
+        _auth.COOKIE, token,
+        httponly=True, samesite="lax", secure=False,  # set secure=True behind HTTPS
+        max_age=_auth.TOKEN_TTL * 3600,
+    )
+    return resp
+
+@app.post("/api/auth/logout")
+async def logout():
+    resp = JSONResponse({"ok": True})
+    resp.delete_cookie(_auth.COOKIE)
+    return resp
+
+@app.get("/api/auth/me")
+async def me(qs_token: Optional[str] = Cookie(default=None)):
+    if not qs_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    user = _auth.get_current_user(qs_token)
+    return {"username": user["username"], "role": user["role"], "email": user["email"]}
+
+# ── Admin routes ───────────────────────────────────────────────────────────────
+
+class NewUser(BaseModel):
+    username: str
+    email: str
+    password: str
+    role: str = "recruiter"
+
+class UpdateUser(BaseModel):
+    role: Optional[str] = None
+    active: Optional[bool] = None
+    password: Optional[str] = None
+
+@app.get("/api/admin/users")
+async def admin_list_users(qs_token: Optional[str] = Cookie(default=None)):
+    _auth.require_admin(qs_token=qs_token)
+    return _auth.list_users()
+
+@app.post("/api/admin/users")
+async def admin_create_user(body: NewUser, qs_token: Optional[str] = Cookie(default=None)):
+    _auth.require_admin(qs_token=qs_token)
+    return _auth.create_user(body.username, body.email, body.password, body.role)
+
+@app.patch("/api/admin/users/{uid}")
+async def admin_update_user(uid: int, body: UpdateUser, qs_token: Optional[str] = Cookie(default=None)):
+    _auth.require_admin(qs_token=qs_token)
+    return _auth.update_user(uid, body.role, body.active, body.password)
+
+@app.delete("/api/admin/users/{uid}")
+async def admin_delete_user(uid: int, qs_token: Optional[str] = Cookie(default=None)):
+    admin = _auth.require_admin(qs_token=qs_token)
+    _auth.delete_user(uid, admin["id"])
+    return {"ok": True}
 
 # ── File parsing ───────────────────────────────────────────────────────────────
 
@@ -299,7 +373,8 @@ def generate_excel(results: list, role_title: str = "", history: dict = None, sc
 # ── API routes ─────────────────────────────────────────────────────────────────
 
 @app.post("/api/parse-jd")
-async def parse_jd(file: UploadFile = File(...)):
+async def parse_jd(file: UploadFile = File(...), qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
     try:
         b = await file.read()
         text = parse_bytes(b, file.filename)
@@ -309,7 +384,8 @@ async def parse_jd(file: UploadFile = File(...)):
 
 
 @app.post("/api/detect-competencies")
-async def detect_competencies(jd: str = Form(...)):
+async def detect_competencies(jd: str = Form(...), qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
     client = anthropic.Anthropic(api_key=get_api_key())
     msg = client.messages.create(
         model="claude-opus-4-8", max_tokens=300,
@@ -328,7 +404,9 @@ async def screen(
     competencies: str = Form(""),
     calibration: str = Form("[]"),
     files: List[UploadFile] = File(...),
+    qs_token: Optional[str] = Cookie(default=None),
 ):
+    _auth.get_current_user(qs_token)
     cvs = {}
     for f in files:
         try:
@@ -361,7 +439,8 @@ class ExportBody(BaseModel):
 
 
 @app.post("/api/export/pdf")
-async def export_pdf(body: ExportBody):
+async def export_pdf(body: ExportBody, qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
     pdf = generate_pdf(body.results, body.role_title)
     filename = f"CV_Screening_{datetime.now().strftime('%Y-%m-%d')}.pdf"
     return Response(
@@ -372,7 +451,8 @@ async def export_pdf(body: ExportBody):
 
 
 @app.post("/api/export/excel")
-async def export_excel(body: ExportBody):
+async def export_excel(body: ExportBody, qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
     xlsx = generate_excel(body.results, body.role_title, body.history, body.score_feedback)
     filename = f"CV_Screening_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
     return Response(

@@ -46,6 +46,118 @@ nav .nav-btn.primary { background: var(--blue); color: #fff; }
 nav .nav-btn.primary:hover { background: var(--blue-dark); }
 nav .nav-btn:disabled { opacity: .4; cursor: not-allowed; }
 
+/* ── Login screen ─────────────────────────────────────────────── */
+.login-wrap {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  padding: 32px 16px;
+}
+.login-box {
+  background: #fff; border-radius: 16px; border: 1px solid var(--border);
+  box-shadow: 0 4px 24px rgba(0,0,0,.09); padding: 40px 36px; width: 100%; max-width: 380px;
+}
+.login-box .login-logo { text-align: center; margin-bottom: 28px; }
+.login-box .login-logo .lm {
+  width: 48px; height: 48px; border-radius: 12px; background: var(--blue);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 10px;
+}
+.login-box h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.login-box .login-sub { font-size: 13px; color: var(--grey); }
+.login-box .login-logo h2, .login-box .login-logo .login-sub { text-align: center; }
+.login-field { margin-bottom: 16px; }
+.login-field label { margin-bottom: 6px; }
+.login-field input { padding: 11px 13px; }
+.login-err { font-size: 13px; color: var(--danger-red); margin-bottom: 12px; min-height: 18px; }
+.login-btn {
+  width: 100%; padding: 12px; background: var(--blue); color: #fff; border: none;
+  border-radius: 9px; font-size: 15px; font-weight: 700; cursor: pointer;
+  font-family: inherit; transition: .15s;
+}
+.login-btn:hover { background: var(--blue-dark); }
+.login-btn:disabled { opacity: .5; cursor: not-allowed; }
+.login-hint { font-size: 11px; color: var(--grey); text-align: center; margin-top: 14px; }
+
+/* ── Nav user chip ────────────────────────────────────────────── */
+.user-chip {
+  display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 8px;
+  background: #ffffff15; border-radius: 20px; font-size: 12px; color: #fff;
+}
+.user-chip .uc-av {
+  width: 26px; height: 26px; border-radius: 50%; background: var(--blue);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; flex-shrink: 0;
+}
+.user-chip .uc-role {
+  font-size: 10px; color: #9BBDD4; display: block; line-height: 1;
+}
+.nav-divider { width: 1px; height: 24px; background: #ffffff20; }
+
+/* ── Admin screen ─────────────────────────────────────────────── */
+.admin-header { margin-bottom: 24px; }
+.admin-header h1 { font-size: 22px; font-weight: 700; }
+.admin-header p { font-size: 14px; color: var(--grey); margin-top: 4px; }
+.users-table-wrap { background: #fff; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 28px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead tr { background: var(--navy); color: #fff; }
+thead th { padding: 11px 14px; text-align: left; font-weight: 600; font-size: 12px; }
+tbody tr { border-bottom: 1px solid var(--border); }
+tbody tr:last-child { border: none; }
+tbody tr:hover { background: var(--light); }
+tbody td { padding: 11px 14px; vertical-align: middle; }
+.role-badge {
+  display: inline-block; padding: 2px 10px; border-radius: 12px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+}
+.role-badge.admin     { background: var(--blue-bg); color: var(--blue-dark); }
+.role-badge.recruiter { background: var(--green-bg); color: var(--green); }
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+.status-dot.on  { background: var(--green); }
+.status-dot.off { background: #ccc; }
+.tbl-action {
+  padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
+  cursor: pointer; border: 1.5px solid var(--border); background: #fff;
+  color: var(--grey); font-family: inherit; transition: .15s; margin-right: 4px;
+}
+.tbl-action:hover { border-color: var(--blue); color: var(--blue); }
+.tbl-action.danger:hover { border-color: var(--danger-red); color: var(--danger-red); }
+
+/* Add-user card */
+.add-user-card { background: #fff; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); padding: 24px; }
+.add-user-card h2 { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+.user-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 600px) { .user-form-grid { grid-template-columns: 1fr; } }
+.user-form-grid label { margin-bottom: 4px; }
+select {
+  width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; font-family: inherit; font-size: 13px; color: var(--navy);
+  background: #fff; transition: border .15s;
+}
+select:focus { outline: none; border-color: var(--blue); }
+.add-user-err { font-size: 13px; color: var(--danger-red); margin: 10px 0 0; min-height: 18px; }
+.add-user-ok  { font-size: 13px; color: var(--green); margin: 10px 0 0; }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0; background: #1A1A2Eaa; backdrop-filter: blur(2px);
+  display: none; align-items: center; justify-content: center; z-index: 300;
+}
+.modal-overlay.show { display: flex; }
+.modal-box {
+  background: #fff; border-radius: 14px; padding: 28px 32px;
+  max-width: 360px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,.15);
+}
+.modal-box h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+.modal-box p  { font-size: 13px; color: var(--grey); margin-bottom: 20px; line-height: 1.5; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.modal-actions button {
+  padding: 9px 20px; border-radius: 8px; font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: inherit; border: none; transition: .15s;
+}
+.modal-cancel { background: var(--light); color: var(--grey); }
+.modal-cancel:hover { background: var(--border); }
+.modal-confirm { background: var(--danger-red); color: #fff; }
+.modal-confirm:hover { background: #a01f1f; }
+
 /* ── Screens ──────────────────────────────────────────────────── */
 .screen { display: none; flex: 1; flex-direction: column; }
 .screen.active { display: flex; }
@@ -350,7 +462,107 @@ textarea { min-height: 140px; line-height: 1.5; }
   <button class="nav-btn outline" id="nav-export-pdf" style="display:none" onclick="exportPDF()">⬇ PDF</button>
   <button class="nav-btn outline" id="nav-export-xl" style="display:none" onclick="exportExcel()">⬇ Excel</button>
   <button class="nav-btn primary" id="nav-new" style="display:none" onclick="goSetup()">＋ New Screening</button>
+  <button class="nav-btn outline" id="nav-admin" style="display:none" onclick="goAdmin()">⚙ Admin</button>
+  <div class="nav-divider" id="nav-divider" style="display:none"></div>
+  <div class="user-chip" id="nav-user" style="display:none">
+    <div class="uc-av" id="nav-avatar"></div>
+    <div>
+      <div id="nav-username"></div>
+      <span class="uc-role" id="nav-role"></span>
+    </div>
+  </div>
+  <button class="nav-btn outline" id="nav-logout" style="display:none" onclick="logout()">Sign out</button>
 </nav>
+
+<!-- ── Login screen ────────────────────────────────────────────── -->
+<div class="screen active" id="screen-login">
+  <div class="login-wrap">
+    <div class="login-box">
+      <div class="login-logo">
+        <div class="lm">QA</div>
+        <h2>CV Screener</h2>
+        <div class="login-sub">Quest Alliance · Sign in to continue</div>
+      </div>
+      <div class="login-field">
+        <label for="login-username">Username</label>
+        <input type="text" id="login-username" placeholder="Enter your username"
+          onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="login-field">
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" placeholder="Enter your password"
+          onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="login-err" id="login-err"></div>
+      <button class="login-btn" id="login-btn" onclick="doLogin()">Sign In</button>
+      <div class="login-hint">Contact your administrator if you need access.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Admin screen ─────────────────────────────────────────────── -->
+<div class="screen" id="screen-admin">
+  <main>
+    <div class="admin-header">
+      <h1>User Management</h1>
+      <p>Add users, assign roles, and manage access to the CV Screener.</p>
+    </div>
+
+    <div class="users-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Username</th><th>Email</th><th>Role</th>
+            <th>Status</th><th>Created</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="users-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="add-user-card">
+      <h2>Add New User</h2>
+      <div class="user-form-grid">
+        <div>
+          <label>Username</label>
+          <input type="text" id="nu-username" placeholder="e.g. priya_hr">
+        </div>
+        <div>
+          <label>Email</label>
+          <input type="email" id="nu-email" placeholder="priya@questalliance.net">
+        </div>
+        <div>
+          <label>Password</label>
+          <input type="password" id="nu-password" placeholder="Temporary password">
+        </div>
+        <div>
+          <label>Role</label>
+          <select id="nu-role">
+            <option value="recruiter">Recruiter</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      <div class="add-user-err" id="add-user-err"></div>
+      <div class="add-user-ok" id="add-user-ok"></div>
+      <div style="margin-top:16px">
+        <button class="screen-btn primary" onclick="addUser()">Add User</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ── Confirm modal ────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <h3 id="modal-title"></h3>
+    <p id="modal-body"></p>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-confirm" id="modal-ok">Confirm</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── Setup screen ────────────────────────────────────────────── -->
 <div class="screen active" id="screen-setup">
@@ -478,6 +690,179 @@ textarea { min-height: 140px; line-height: 1.5; }
 <div class="toast" id="toast"></div>
 
 <script>
+// ── Auth state ─────────────────────────────────────────────────────────────────
+let currentUser = null;  // { username, role, email }
+
+async function initAuth() {
+  try {
+    const res = await fetch("/api/auth/me");
+    if (res.ok) {
+      currentUser = await res.json();
+      renderNav();
+      showScreen("setup");
+    } else {
+      showScreen("login");
+    }
+  } catch { showScreen("login"); }
+}
+
+function renderNav() {
+  if (!currentUser) return;
+  document.getElementById("nav-user").style.display = "";
+  document.getElementById("nav-divider").style.display = "";
+  document.getElementById("nav-logout").style.display = "";
+  document.getElementById("nav-avatar").textContent = currentUser.username.slice(0,2).toUpperCase();
+  document.getElementById("nav-username").textContent = currentUser.username;
+  document.getElementById("nav-role").textContent = currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1);
+  if (currentUser.role === "admin") {
+    document.getElementById("nav-admin").style.display = "";
+  }
+}
+
+async function doLogin() {
+  const btn = document.getElementById("login-btn");
+  const err = document.getElementById("login-err");
+  const username = document.getElementById("login-username").value.trim();
+  const password = document.getElementById("login-password").value;
+  err.textContent = "";
+  if (!username || !password) { err.textContent = "Enter username and password."; return; }
+  btn.disabled = true; btn.textContent = "Signing in…";
+  try {
+    const fd = new FormData();
+    fd.append("username", username); fd.append("password", password);
+    const res = await fetch("/api/auth/login", { method: "POST", body: fd });
+    if (!res.ok) {
+      const d = await res.json().catch(()=>({}));
+      err.textContent = d.detail || "Invalid username or password.";
+      return;
+    }
+    currentUser = await res.json();
+    document.getElementById("login-password").value = "";
+    renderNav();
+    showScreen("setup");
+  } catch(e) {
+    err.textContent = "Network error. Please try again.";
+  } finally {
+    btn.disabled = false; btn.textContent = "Sign In";
+  }
+}
+
+async function logout() {
+  await fetch("/api/auth/logout", { method: "POST" }).catch(()=>{});
+  currentUser = null;
+  // reset nav
+  ["nav-user","nav-divider","nav-logout","nav-admin","nav-export-pdf","nav-export-xl","nav-new"]
+    .forEach(id => document.getElementById(id).style.display = "none");
+  showScreen("login");
+}
+
+// ── Admin ───────────────────────────────────────────────────────────────────────
+function goAdmin() { loadUsers(); showScreen("admin"); }
+
+async function loadUsers() {
+  try {
+    const res = await fetch("/api/admin/users");
+    if (!res.ok) return;
+    const users = await res.json();
+    renderUsersTable(users);
+  } catch {}
+}
+
+function renderUsersTable(users) {
+  const tbody = document.getElementById("users-tbody");
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td>${u.id}</td>
+      <td><strong>${u.username}</strong></td>
+      <td>${u.email}</td>
+      <td><span class="role-badge ${u.role}">${u.role}</span></td>
+      <td>
+        <span class="status-dot ${u.active ? 'on' : 'off'}"></span>
+        ${u.active ? "Active" : "Disabled"}
+      </td>
+      <td style="font-size:11px;color:var(--grey)">${u.created_at ? u.created_at.slice(0,10) : "—"}</td>
+      <td>
+        ${u.role === "recruiter"
+          ? `<button class="tbl-action" onclick="changeRole(${u.id},'admin')">Make Admin</button>`
+          : `<button class="tbl-action" onclick="changeRole(${u.id},'recruiter')">Make Recruiter</button>`}
+        ${u.active
+          ? `<button class="tbl-action" onclick="toggleActive(${u.id},false)">Disable</button>`
+          : `<button class="tbl-action" onclick="toggleActive(${u.id},true)">Enable</button>`}
+        <button class="tbl-action danger" onclick="confirmDelete(${u.id},'${u.username}')">Delete</button>
+      </td>
+    </tr>
+  `).join("");
+}
+
+async function changeRole(uid, role) {
+  await fetch(`/api/admin/users/${uid}`, {
+    method: "PATCH",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({role}),
+  });
+  loadUsers();
+  showToast("Role updated");
+}
+
+async function toggleActive(uid, active) {
+  await fetch(`/api/admin/users/${uid}`, {
+    method: "PATCH",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({active}),
+  });
+  loadUsers();
+  showToast(active ? "User enabled" : "User disabled");
+}
+
+function confirmDelete(uid, username) {
+  openModal(
+    `Delete "${username}"?`,
+    "This will permanently remove the user. They will no longer be able to sign in.",
+    async () => {
+      await fetch(`/api/admin/users/${uid}`, { method: "DELETE" });
+      loadUsers();
+      showToast("User deleted");
+    }
+  );
+}
+
+async function addUser() {
+  const err = document.getElementById("add-user-err");
+  const ok  = document.getElementById("add-user-ok");
+  err.textContent = ""; ok.textContent = "";
+  const username = document.getElementById("nu-username").value.trim();
+  const email    = document.getElementById("nu-email").value.trim();
+  const password = document.getElementById("nu-password").value;
+  const role     = document.getElementById("nu-role").value;
+  if (!username || !email || !password) { err.textContent = "All fields are required."; return; }
+  try {
+    const res = await fetch("/api/admin/users", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({username, email, password, role}),
+    });
+    const data = await res.json();
+    if (!res.ok) { err.textContent = data.detail || "Could not create user."; return; }
+    ok.textContent = `✓ User "${username}" created as ${role}.`;
+    document.getElementById("nu-username").value = "";
+    document.getElementById("nu-email").value = "";
+    document.getElementById("nu-password").value = "";
+    document.getElementById("nu-role").value = "recruiter";
+    loadUsers();
+  } catch(e) { err.textContent = "Network error."; }
+}
+
+// ── Modal ───────────────────────────────────────────────────────────────────────
+let _modalCb = null;
+function openModal(title, body, cb) {
+  document.getElementById("modal-title").textContent = title;
+  document.getElementById("modal-body").textContent  = body;
+  _modalCb = cb;
+  document.getElementById("modal-ok").onclick = () => { closeModal(); cb && cb(); };
+  document.getElementById("modal").classList.add("show");
+}
+function closeModal() { document.getElementById("modal").classList.remove("show"); }
+
 // ── State ──────────────────────────────────────────────────────────────────────
 let state = {
   competencies: [],
@@ -543,7 +928,7 @@ function showScreen(id) {
   const isResults = id === "results" || id === "detail";
   document.getElementById("nav-export-pdf").style.display = isResults ? "" : "none";
   document.getElementById("nav-export-xl").style.display  = isResults ? "" : "none";
-  document.getElementById("nav-new").style.display = isResults ? "" : "none";
+  document.getElementById("nav-new").style.display = (currentUser && isResults) ? "" : "none";
   window.scrollTo(0, 0);
 }
 function goSetup()   { showScreen("setup"); }
@@ -1014,6 +1399,7 @@ function today() {
 renderChips();
 renderCalib();
 renderFileList();
+initAuth();
 </script>
 </body>
 </html>
