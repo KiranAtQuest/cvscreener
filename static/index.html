@@ -360,9 +360,16 @@ textarea { min-height: 140px; line-height: 1.5; }
       <!-- JD card -->
       <div class="card">
         <h2>Job Description</h2>
-        <div class="card-sub">Paste the full job description. Claude will extract competencies.</div>
-        <label for="jd-input">Job Description</label>
-        <textarea id="jd-input" placeholder="Paste the job description here…" rows="8"></textarea>
+        <div class="card-sub">Paste the JD below, or upload a PDF / DOCX file.</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <label for="jd-input" style="margin:0">Job Description</label>
+          <label class="btn-sm outline" style="cursor:pointer;font-size:12px;padding:5px 12px;margin:0">
+            ⬆ Upload JD
+            <input type="file" id="jd-file-input" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="uploadJD(event)">
+          </label>
+        </div>
+        <div id="jd-upload-status" style="font-size:12px;color:var(--grey);margin-bottom:6px;min-height:16px"></div>
+        <textarea id="jd-input" placeholder="Paste the job description here, or upload a file above…" rows="8"></textarea>
         <div style="margin-top:12px">
           <label>Role Title (optional)</label>
           <input type="text" id="role-title" placeholder="e.g. Programme Manager – Skilling">
@@ -564,6 +571,26 @@ function addCompetency() {
 function removeComp(i) {
   state.competencies.splice(i, 1);
   renderChips();
+}
+
+async function uploadJD(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const status = document.getElementById("jd-upload-status");
+  status.textContent = "⏳ Reading " + file.name + "…";
+  e.target.value = "";
+  try {
+    const fd = new FormData(); fd.append("file", file);
+    const res = await fetch("/api/parse-jd", { method: "POST", body: fd });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    const data = await res.json();
+    document.getElementById("jd-input").value = data.text;
+    status.textContent = "✓ Loaded: " + file.name;
+    status.style.color = "var(--green)";
+  } catch(e) {
+    status.textContent = "❌ " + e.message;
+    status.style.color = "var(--danger-red)";
+  }
 }
 
 async function detectCompetencies() {

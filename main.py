@@ -298,6 +298,16 @@ def generate_excel(results: list, role_title: str = "", history: dict = None, sc
 
 # ── API routes ─────────────────────────────────────────────────────────────────
 
+@app.post("/api/parse-jd")
+async def parse_jd(file: UploadFile = File(...)):
+    try:
+        b = await file.read()
+        text = parse_bytes(b, file.filename)
+        return {"text": text}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not read file: {e}")
+
+
 @app.post("/api/detect-competencies")
 async def detect_competencies(jd: str = Form(...)):
     client = anthropic.Anthropic(api_key=get_api_key())
