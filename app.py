@@ -81,17 +81,16 @@ p, h1, h2, h3, h4, li, label, div { text-align: left; }
 }
 [data-testid="stButton"] button[kind="secondary"]:hover:not(:disabled) { background: #F4F7FA !important; }
 
-/* ── Shortlist active → blue ── */
-button[title="undo-shortlist"] {
-  background: #0075BC !important; color: #fff !important; border-color: #0075BC !important;
+/* ── Shortlist active → green (:has marker in same column block) ── */
+[data-testid="stVerticalBlock"]:has(.qs-sl-active) button,
+[data-testid="stVerticalBlock"]:has(.qs-sl-active) button:hover {
+  background: #1B6E2E !important; color: #fff !important; border-color: #1B6E2E !important;
 }
-button[title="undo-shortlist"]:hover { background: #005A91 !important; border-color: #005A91 !important; }
-
-/* ── Reject active → coral ── */
-button[title="undo-reject"] {
-  background: #F15A29 !important; color: #fff !important; border-color: #F15A29 !important;
+/* ── Reject active → red ── */
+[data-testid="stVerticalBlock"]:has(.qs-rj-active) button,
+[data-testid="stVerticalBlock"]:has(.qs-rj-active) button:hover {
+  background: #C62828 !important; color: #fff !important; border-color: #C62828 !important;
 }
-button[title="undo-reject"]:hover { background: #c94820 !important; border-color: #c94820 !important; }
 
 /* ── Cards ── */
 [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] {
