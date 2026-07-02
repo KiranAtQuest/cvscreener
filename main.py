@@ -185,6 +185,12 @@ def build_prompt(jd: str, competencies: str, cvs: dict, calibration: list,
 
 ## Required Skill Competencies
 {competencies or "(derive from JD)"}
+
+## Universal Scoring Factor (applies to ALL roles)
+Experience working with non-profit, NGO, social sector, or development organisations must be treated
+as a significant positive signal for every candidate, regardless of role. Candidates with such
+experience should score meaningfully higher (add 5-10 points to overall) than equally qualified
+candidates without it. Reflect this in the "strengths" array and factor it into competency scores.
 {calibration_block}{examples_block}
 ## Candidate CVs
 {cv_block}

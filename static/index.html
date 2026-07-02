@@ -603,17 +603,18 @@ textarea { min-height: 140px; line-height: 1.5; }
       <!-- Competencies card -->
       <div class="card">
         <h2>Skill Competencies</h2>
-        <div class="card-sub">5 competencies to score each CV on. Auto-detected from JD or add manually.</div>
+        <div class="card-sub">Auto-detect from JD, then add or remove your own. Up to 8 competencies. NGO/non-profit experience is always included.</div>
         <div class="chips" id="comp-chips"></div>
-        <div class="chip-input-row" id="comp-add-row" style="display:none">
-          <input type="text" id="comp-input" placeholder="Add competency…" maxlength="60"
+        <div class="chip-input-row" id="comp-add-row">
+          <input type="text" id="comp-input" placeholder="Add a competency…" maxlength="60"
             onkeydown="if(event.key==='Enter'){addCompetency();event.preventDefault()}">
           <button class="btn-sm blue" onclick="addCompetency()">Add</button>
         </div>
-        <button class="btn-sm blue detect-btn" id="detect-btn" onclick="detectCompetencies()">
+        <div id="comp-limit-note" style="font-size:11px;color:var(--grey);margin-top:6px;display:none">Maximum 8 competencies reached.</div>
+        <button class="btn-sm outline detect-btn" id="detect-btn" onclick="detectCompetencies()" style="margin-top:10px">
           ✨ Auto-detect from JD
         </button>
-        <div class="detect-note" id="detect-note">Needs a job description to detect competencies.</div>
+        <div class="detect-note" id="detect-note"></div>
       </div>
 
       <!-- Upload card -->
@@ -958,19 +959,22 @@ function goSetup()   { showScreen("setup"); }
 function goResults() { showScreen("results"); renderResults(); }
 
 // ── Setup: Competencies ────────────────────────────────────────────────────────
+const MAX_COMPETENCIES = 8;
+
 function renderChips() {
   const el = document.getElementById("comp-chips");
   el.innerHTML = state.competencies.map((c, i) =>
     `<div class="chip">${c}<button class="chip-del" onclick="removeComp(${i})">×</button></div>`
   ).join("");
-  const addRow = document.getElementById("comp-add-row");
-  addRow.style.display = state.competencies.length < 5 ? "flex" : "none";
+  const atLimit = state.competencies.length >= MAX_COMPETENCIES;
+  document.getElementById("comp-input").disabled = atLimit;
+  document.getElementById("comp-limit-note").style.display = atLimit ? "" : "none";
 }
 
 function addCompetency() {
   const inp = document.getElementById("comp-input");
   const v = inp.value.trim();
-  if (!v || state.competencies.length >= 5) return;
+  if (!v || state.competencies.length >= MAX_COMPETENCIES) return;
   if (!state.competencies.includes(v)) state.competencies.push(v);
   inp.value = "";
   renderChips();
@@ -1012,9 +1016,15 @@ async function detectCompetencies() {
     const res = await fetch("/api/detect-competencies", { method: "POST", body: fd });
     if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
     const data = await res.json();
-    state.competencies = data.competencies.slice(0, 5);
+    // Merge detected competencies with any the user already added
+    const detected = data.competencies || [];
+    const combined = [...state.competencies];
+    for (const c of detected) {
+      if (!combined.includes(c) && combined.length < MAX_COMPETENCIES) combined.push(c);
+    }
+    state.competencies = combined;
     renderChips();
-    document.getElementById("detect-note").textContent = "✓ Competencies detected. You can edit them.";
+    document.getElementById("detect-note").textContent = `✓ ${detected.length} competencies detected. Add more or remove any below.`;
   } catch(e) {
     document.getElementById("detect-note").textContent = "❌ " + e.message;
   } finally {
