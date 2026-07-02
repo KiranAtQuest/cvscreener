@@ -593,7 +593,7 @@ textarea { min-height: 140px; line-height: 1.5; }
           </label>
         </div>
         <div id="jd-upload-status" style="font-size:12px;color:var(--grey);margin-bottom:6px;min-height:16px"></div>
-        <textarea id="jd-input" placeholder="Paste the job description here, or upload a file above…" rows="8"></textarea>
+        <textarea id="jd-input" placeholder="Paste the job description here, or upload a file above…" rows="8" oninput="onJdChange()"></textarea>
         <div style="margin-top:12px">
           <label>Role Title (optional)</label>
           <input type="text" id="role-title" placeholder="e.g. Programme Manager – Skilling">
@@ -886,11 +886,20 @@ function openModal(title, body, cb) {
 }
 function closeModal() { document.getElementById("modal").classList.remove("show"); }
 
+// ── JD hashing ────────────────────────────────────────────────────────────────
+function jdHash(text) {
+  const s = text.trim().toLowerCase().replace(/\s+/g, ' ');
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) { h = ((h << 5) + h) + s.charCodeAt(i); h = h & h; }
+  return Math.abs(h).toString(36);
+}
+
 // ── State ──────────────────────────────────────────────────────────────────────
 let state = {
   competencies: [],
   files: [],          // File objects
   calibration: [],
+  currentJdHash: "",
   roleTitle: "",
   results: [],
   truncated: false,
@@ -997,6 +1006,7 @@ async function uploadJD(e) {
     if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
     const data = await res.json();
     document.getElementById("jd-input").value = data.text;
+    onJdChange();
     status.textContent = "✓ Loaded: " + file.name;
     status.style.color = "var(--green)";
   } catch(e) {
@@ -1076,28 +1086,51 @@ function removeFile(i) {
   renderFileList();
 }
 
-// ── Setup: Calibration (server-persisted) ─────────────────────────────────────
-// state.calibration holds objects: { id, note, created_by }
+// ── Setup: Calibration (per-JD, server-persisted) ─────────────────────────────
+// state.calibration holds objects: { id, note, jd_hash, created_by }
 
-async function loadCalibration() {
+async function loadCalibration(hash) {
+  hash = hash || state.currentJdHash || "";
   try {
-    const res = await fetch("/api/calibration");
+    const res = await fetch(`/api/calibration?jd_hash=${encodeURIComponent(hash)}`);
     if (!res.ok) return;
-    const notes = await res.json();
-    state.calibration = notes;
+    state.calibration = await res.json();
     renderCalib();
   } catch {}
+}
+
+// Debounced handler — fires when JD text changes
+let _jdDebounce = null;
+function onJdChange() {
+  clearTimeout(_jdDebounce);
+  _jdDebounce = setTimeout(async () => {
+    const jd = document.getElementById("jd-input").value.trim();
+    if (!jd) {
+      state.currentJdHash = "";
+      state.calibration = [];
+      renderCalib();
+      return;
+    }
+    const hash = jdHash(jd);
+    if (hash === state.currentJdHash) return;
+    state.currentJdHash = hash;
+    await loadCalibration(hash);
+  }, 600);
 }
 
 async function addCalib() {
   const inp = document.getElementById("calib-input");
   const v = inp.value.trim();
   if (!v) return;
+  if (!state.currentJdHash) {
+    showToast("Paste or upload a Job Description first.");
+    return;
+  }
   try {
     const res = await fetch("/api/calibration", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({note: v}),
+      body: JSON.stringify({note: v, jd_hash: state.currentJdHash}),
     });
     if (!res.ok) return;
     const note = await res.json();
@@ -1117,6 +1150,12 @@ async function removeCalib(id) {
 
 function renderCalib() {
   const el = document.getElementById("calib-list");
+  if (!state.calibration.length) {
+    el.innerHTML = state.currentJdHash
+      ? `<div style="font-size:12px;color:var(--grey);padding:4px 0">No notes for this JD yet. Add one below.</div>`
+      : `<div style="font-size:12px;color:var(--grey);padding:4px 0">Notes are saved per JD — paste a JD to load matching notes.</div>`;
+    return;
+  }
   el.innerHTML = state.calibration.map(c =>
     `<div class="calib-item">
       <span class="ci-text">${c.note}<span style="color:var(--grey);font-size:10px;margin-left:6px">— ${c.created_by || ''}</span></span>
@@ -1132,6 +1171,7 @@ async function runScreen() {
   if (state.files.length === 0) { showToast("Please upload at least one CV."); return; }
 
   state.roleTitle = document.getElementById("role-title").value.trim();
+  state.currentJdHash = jdHash(jd);
   state.decisions = {};
 
   showProgress("Screening CVs…",

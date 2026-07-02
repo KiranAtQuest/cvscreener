@@ -58,9 +58,14 @@ def init_db():
             CREATE TABLE IF NOT EXISTS calibration (
                 id         SERIAL PRIMARY KEY,
                 note       TEXT NOT NULL,
+                jd_hash    TEXT NOT NULL DEFAULT '',
                 created_by TEXT NOT NULL,
                 created_at TEXT NOT NULL
             )
+        """)
+        # Add jd_hash column if upgrading from older schema
+        cur.execute("""
+            ALTER TABLE calibration ADD COLUMN IF NOT EXISTS jd_hash TEXT NOT NULL DEFAULT ''
         """)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS screening_examples (
@@ -199,22 +204,25 @@ def get_user_by_credentials(username: str, password: str) -> Optional[dict]:
         return None
     return dict(row)
 
-# ── Calibration notes ──────────────────────────────────────────────────────────
-def get_calibration_notes() -> list:
-    with _conn() as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT id, note, created_by, created_at FROM calibration ORDER BY id")
-        return [dict(r) for r in cur.fetchall()]
-
-def add_calibration_note(note: str, username: str) -> dict:
+# ── Calibration notes (per-JD) ─────────────────────────────────────────────────
+def get_calibration_notes(jd_hash: str = "") -> list:
     with _conn() as conn:
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO calibration (note, created_by, created_at) VALUES (%s, %s, %s) RETURNING id",
-            (note.strip(), username, datetime.now(timezone.utc).isoformat())
+            "SELECT id, note, jd_hash, created_by, created_at FROM calibration WHERE jd_hash=%s ORDER BY id",
+            (jd_hash,)
+        )
+        return [dict(r) for r in cur.fetchall()]
+
+def add_calibration_note(note: str, username: str, jd_hash: str = "") -> dict:
+    with _conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO calibration (note, jd_hash, created_by, created_at) VALUES (%s, %s, %s, %s) RETURNING id",
+            (note.strip(), jd_hash, username, datetime.now(timezone.utc).isoformat())
         )
         nid = cur.fetchone()["id"]
-    return {"id": nid, "note": note.strip(), "created_by": username}
+    return {"id": nid, "note": note.strip(), "jd_hash": jd_hash, "created_by": username}
 
 def delete_calibration_note(note_id: int):
     with _conn() as conn:

@@ -95,16 +95,17 @@ async def admin_delete_user(uid: int, qs_token: Optional[str] = Cookie(default=N
 
 class CalibNote(BaseModel):
     note: str
+    jd_hash: str = ""
 
 @app.get("/api/calibration")
-async def get_calibration(qs_token: Optional[str] = Cookie(default=None)):
+async def get_calibration(jd_hash: str = "", qs_token: Optional[str] = Cookie(default=None)):
     _auth.get_current_user(qs_token)
-    return _auth.get_calibration_notes()
+    return _auth.get_calibration_notes(jd_hash)
 
 @app.post("/api/calibration")
 async def add_calibration(body: CalibNote, qs_token: Optional[str] = Cookie(default=None)):
     user = _auth.get_current_user(qs_token)
-    return _auth.add_calibration_note(body.note, user["username"])
+    return _auth.add_calibration_note(body.note, user["username"], body.jd_hash)
 
 @app.delete("/api/calibration/{note_id}")
 async def delete_calibration(note_id: int, qs_token: Optional[str] = Cookie(default=None)):
