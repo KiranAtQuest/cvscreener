@@ -686,16 +686,17 @@ textarea { min-height: 140px; line-height: 1.5; }
       <!-- Upload card -->
       <div class="card">
         <h2>CV Files</h2>
-        <div class="card-sub">Upload PDF, DOCX or DOC files. Max 30 CVs per screening.</div>
+        <div class="card-sub">Upload PDF, DOCX or DOC files. Up to 500 CVs per screening — large batches are processed automatically.</div>
         <div class="dropzone" id="dropzone"
              ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event)">
           <input type="file" id="file-input" accept=".pdf,.doc,.docx" multiple onchange="filesChosen(event)">
           <div class="dz-icon">📄</div>
           <div class="dz-label">Drag &amp; drop CVs or click to browse</div>
-          <div class="dz-sub">PDF, DOCX, DOC · up to 30 files</div>
+          <div class="dz-sub">PDF, DOCX, DOC · up to 500 files</div>
         </div>
         <div class="file-list" id="file-list"></div>
         <div class="err-msg" id="file-err"></div>
+        <div id="file-time-est" style="font-size:12px;color:var(--grey);margin-top:6px;display:none"></div>
       </div>
 
       <!-- Calibration card -->
@@ -795,6 +796,10 @@ textarea { min-height: 140px; line-height: 1.5; }
     <div class="pb-spinner"></div>
     <h3 id="pb-title">Screening CVs…</h3>
     <p id="pb-msg">Claude is reading every CV against your job description. This may take a minute.</p>
+    <div id="pb-bar-wrap" style="display:none;margin-top:16px;background:#eef3f8;border-radius:8px;height:8px;overflow:hidden">
+      <div id="pb-bar" style="height:100%;background:var(--blue);border-radius:8px;width:0%;transition:width .4s"></div>
+    </div>
+    <div id="pb-detail" style="font-size:11px;color:var(--grey);margin-top:8px;display:none"></div>
   </div>
 </div>
 
@@ -1221,13 +1226,14 @@ function addFiles(newFiles) {
     if (!state.files.find(x => x.name === f.name)) valid.push(f);
   }
   if (invalid.length) err.textContent = "Skipped (unsupported): " + invalid.join(", ");
-  if (state.files.length + valid.length > 30) {
-    err.textContent = "Maximum 30 CVs per screening.";
-    state.files = [...state.files, ...valid].slice(0, 30);
+  if (state.files.length + valid.length > 500) {
+    err.textContent = "Maximum 500 CVs per screening.";
+    state.files = [...state.files, ...valid].slice(0, 500);
   } else {
     state.files = [...state.files, ...valid];
   }
   renderFileList();
+  updateTimeEst();
 }
 
 function renderFileList() {
@@ -1245,6 +1251,19 @@ function renderFileList() {
 function removeFile(i) {
   state.files.splice(i, 1);
   renderFileList();
+  updateTimeEst();
+}
+
+function updateTimeEst() {
+  const el = document.getElementById("file-time-est");
+  if (!el) return;
+  const n = state.files.length;
+  if (n === 0) { el.style.display = "none"; return; }
+  const batches = Math.ceil(n / 25);
+  const minSec = batches * 20, maxSec = batches * 35;
+  const fmt = s => s < 60 ? `${s}s` : `~${Math.round(s/60)} min`;
+  el.textContent = `${n} file${n>1?"s":""} selected · ${batches} batch${batches>1?"es":""} · estimated time: ${fmt(minSec)}–${fmt(maxSec)}`;
+  el.style.display = "";
 }
 
 // ── Setup: Calibration (per-JD, server-persisted) ─────────────────────────────
@@ -1326,6 +1345,28 @@ function renderCalib() {
 }
 
 // ── Screen CVs ─────────────────────────────────────────────────────────────────
+const BATCH_SIZE = 25;
+
+function updateProgress(title, msg, batchDone, batchTotal) {
+  document.getElementById("pb-title").textContent = title;
+  document.getElementById("pb-msg").textContent = msg;
+  const barWrap = document.getElementById("pb-bar-wrap");
+  const bar     = document.getElementById("pb-bar");
+  const detail  = document.getElementById("pb-detail");
+  if (batchTotal > 1) {
+    barWrap.style.display = "";
+    bar.style.width = `${Math.round((batchDone / batchTotal) * 100)}%`;
+    const remaining = batchTotal - batchDone;
+    const secLeft = remaining * 28;
+    const timeStr = secLeft < 60 ? `~${secLeft}s` : `~${Math.round(secLeft/60)} min`;
+    detail.textContent = `Batch ${batchDone} of ${batchTotal} complete · ${timeStr} remaining`;
+    detail.style.display = "";
+  } else {
+    barWrap.style.display = "none";
+    detail.style.display = "none";
+  }
+}
+
 async function runScreen() {
   const jd = document.getElementById("jd-input").value.trim();
   if (!jd) { showToast("Please enter a job description."); return; }
@@ -1335,31 +1376,72 @@ async function runScreen() {
   state.currentJdHash = jdHash(jd);
   state.decisions = {};
 
+  const totalFiles = state.files.length;
+  const batches = [];
+  for (let i = 0; i < totalFiles; i += BATCH_SIZE) batches.push(state.files.slice(i, i + BATCH_SIZE));
+  const numBatches = batches.length;
+
+  const calibStr  = JSON.stringify(state.calibration.map(c => c.note || c));
+  const compStr   = state.competencies.join("\n");
+
   showProgress("Screening CVs…",
-    `Claude is reading ${state.files.length} CV${state.files.length>1?"s":""} against your job description. This may take a minute.`);
+    `Processing ${totalFiles} CV${totalFiles>1?"s":""} in ${numBatches} batch${numBatches>1?"es":""}.`);
+  // Show bar immediately for multi-batch jobs
+  if (numBatches > 1) updateProgress("Screening CVs…", "", 0, numBatches);
+
+  const allResults = [];
+  let totalTruncated = false;
+  let pastExamplesUsed = 0;
 
   try {
-    const fd = new FormData();
-    fd.append("jd", jd);
-    fd.append("competencies", state.competencies.join("\n"));
-    fd.append("calibration", JSON.stringify(state.calibration.map(c => c.note || c)));
-    fd.append("role_title", state.roleTitle);
-    for (const f of state.files) fd.append("files", f);
+    for (let b = 0; b < numBatches; b++) {
+      if (numBatches > 1) {
+        updateProgress(
+          `Screening CVs… (batch ${b+1} of ${numBatches})`,
+          `Processing CVs ${b*BATCH_SIZE+1}–${Math.min((b+1)*BATCH_SIZE, totalFiles)} of ${totalFiles}`,
+          b, numBatches
+        );
+      }
 
-    const res = await fetch("/api/screen", { method: "POST", body: fd });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.detail || res.statusText);
+      const fd = new FormData();
+      fd.append("jd", jd);
+      fd.append("competencies", compStr);
+      fd.append("calibration", calibStr);
+      fd.append("role_title", state.roleTitle);
+      for (const f of batches[b]) fd.append("files", f);
+
+      const res = await fetch("/api/screen", { method: "POST", body: fd });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(`Batch ${b+1}: ${data.detail || res.statusText}`);
+      }
+      const data = await res.json();
+      allResults.push(...(data.results || []));
+      if (data.truncated) totalTruncated = true;
+      if (b === 0) pastExamplesUsed = data.past_examples_used || 0;
+
+      if (numBatches > 1) updateProgress(
+        `Screening CVs… (batch ${b+1} of ${numBatches})`,
+        `${allResults.length} CVs screened so far…`,
+        b + 1, numBatches
+      );
     }
-    const data = await res.json();
-    state.results = data.results || [];
-    state.truncated = data.truncated || false;
-    state.pastExamplesUsed = data.past_examples_used || 0;
 
-    // Pre-populate decisions from Claude's initial shortlisted flag
+    // Merge: sort eligible best-to-worst, filtered at end; re-assign ranks
+    allResults.sort((a, b) => {
+      if (a.filtered && !b.filtered) return 1;
+      if (!a.filtered && b.filtered) return -1;
+      return (b.overall || 0) - (a.overall || 0);
+    });
+    allResults.forEach((r, i) => { r.rank = i + 1; });
+
+    state.results = allResults;
+    state.truncated = totalTruncated;
+    state.pastExamplesUsed = pastExamplesUsed;
+
     for (const r of state.results) {
       const k = candKey(r);
-      state.decisions[k] = { shortlisted: r.shortlisted === true ? true : r.shortlisted === false ? null : null };
+      state.decisions[k] = { shortlisted: r.shortlisted === true ? true : null };
     }
 
     hideProgress();
