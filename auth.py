@@ -295,6 +295,52 @@ def get_screening_examples(role_title: str, limit: int = 20) -> list:
         except Exception:
             return []
 
+# ── Upload error logging ───────────────────────────────────────────────────────
+
+def _ensure_upload_errors_table(cur):
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS upload_errors (
+            id             SERIAL PRIMARY KEY,
+            timestamp      TEXT NOT NULL,
+            filename       TEXT NOT NULL,
+            file_type      TEXT,
+            role_title     TEXT,
+            uploaded_by    TEXT,
+            error_code     TEXT,
+            error_plain    TEXT NOT NULL,
+            fix_suggestion TEXT,
+            status         TEXT NOT NULL DEFAULT 'needs-action'
+        )
+    """)
+
+def log_upload_error(filename: str, file_type: str, role_title: str, uploaded_by: str,
+                     error_code: str, error_plain: str, fix_suggestion: str):
+    with _conn() as conn:
+        cur = conn.cursor()
+        _ensure_upload_errors_table(cur)
+        cur.execute("""
+            INSERT INTO upload_errors
+              (timestamp, filename, file_type, role_title, uploaded_by, error_code, error_plain, fix_suggestion)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+        """, (datetime.now(timezone.utc).isoformat(), filename, file_type, role_title,
+              uploaded_by, error_code, error_plain, fix_suggestion))
+
+def get_upload_errors(limit: int = 100) -> list:
+    with _conn() as conn:
+        cur = conn.cursor()
+        _ensure_upload_errors_table(cur)
+        cur.execute("""
+            SELECT id, timestamp, filename, file_type, role_title, uploaded_by,
+                   error_plain, fix_suggestion, status
+            FROM upload_errors ORDER BY id DESC LIMIT %s
+        """, (limit,))
+        return [dict(r) for r in cur.fetchall()]
+
+def update_error_status(error_id: int, status: str):
+    with _conn() as conn:
+        cur = conn.cursor()
+        cur.execute("UPDATE upload_errors SET status=%s WHERE id=%s", (status, error_id))
+
 def list_example_roles() -> list:
     """Return distinct role titles that have saved examples, with counts."""
     with _conn() as conn:

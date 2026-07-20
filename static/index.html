@@ -122,6 +122,33 @@ tbody td { padding: 11px 14px; vertical-align: middle; }
 .tbl-action.danger:hover { border-color: var(--danger-red); color: var(--danger-red); }
 
 /* Add-user card */
+/* Admin tabs */
+.admin-tab {
+  padding: 10px 20px; font-size: 14px; font-weight: 600; border: none; background: none;
+  cursor: pointer; color: var(--grey); font-family: inherit;
+  border-bottom: 2px solid transparent; margin-bottom: -2px; transition: .15s;
+}
+.admin-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+.admin-tab:hover:not(.active) { color: var(--navy); }
+
+/* Error log entries */
+.err-entry {
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px 22px; box-shadow: var(--shadow); margin-bottom: 12px;
+}
+.err-entry-top { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.err-entry-meta { flex: 1; min-width: 0; }
+.err-entry-filename { font-size: 15px; font-weight: 700; word-break: break-all; }
+.err-entry-detail { font-size: 12px; color: var(--grey); display: flex; gap: 14px; flex-wrap: wrap; margin-top: 3px; }
+.err-status { display: inline-block; padding: 3px 12px; border-radius: 12px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.err-status.needs-action { background: var(--danger-bg); color: var(--danger-red); border: 1px solid #FFCDD2; }
+.err-status.resolved     { background: var(--green-bg); color: var(--green); border: 1px solid #A5D6A7; }
+.err-body { background: var(--light); border-radius: 8px; padding: 14px 16px; }
+.err-section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 5px; }
+.err-what { color: var(--navy); font-size: 13px; line-height: 1.6; margin-bottom: 12px; }
+.err-fix { background: var(--blue-bg); border-radius: 6px; padding: 10px 12px; font-size: 13px; color: var(--blue-dark); line-height: 1.6; }
+.err-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+
 .add-user-card { background: #fff; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); padding: 24px; }
 .add-user-card h2 { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
 .user-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -516,49 +543,76 @@ textarea { min-height: 140px; line-height: 1.5; }
 <div class="screen" id="screen-admin">
   <main>
     <div class="admin-header">
-      <h1>User Management</h1>
-      <p>Add users, assign roles, and manage access to the CV Screener.</p>
+      <h1>Admin Panel</h1>
+      <p>Manage users and monitor application health.</p>
     </div>
 
-    <div class="users-table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th><th>Username</th><th>Email</th><th>Role</th>
-            <th>Status</th><th>Created</th><th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="users-tbody"></tbody>
-      </table>
+    <!-- Tabs -->
+    <div style="display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:24px">
+      <button class="admin-tab active" id="tab-users" onclick="switchAdminTab('users')">Users</button>
+      <button class="admin-tab" id="tab-errors" onclick="switchAdminTab('errors')">
+        Error Log <span id="err-tab-badge" style="display:none;background:var(--danger-red);color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px"></span>
+      </button>
     </div>
 
-    <div class="add-user-card">
-      <h2>Add New User</h2>
-      <div class="user-form-grid">
-        <div>
-          <label>Username</label>
-          <input type="text" id="nu-username" placeholder="e.g. priya_hr">
+    <!-- Users panel -->
+    <div id="admin-panel-users">
+      <div class="users-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Username</th><th>Email</th><th>Role</th>
+              <th>Status</th><th>Created</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="add-user-card">
+        <h2>Add New User</h2>
+        <div class="user-form-grid">
+          <div>
+            <label>Username</label>
+            <input type="text" id="nu-username" placeholder="e.g. priya_hr">
+          </div>
+          <div>
+            <label>Email</label>
+            <input type="email" id="nu-email" placeholder="priya@questalliance.net">
+          </div>
+          <div>
+            <label>Password</label>
+            <input type="password" id="nu-password" placeholder="Temporary password">
+          </div>
+          <div>
+            <label>Role</label>
+            <select id="nu-role">
+              <option value="recruiter">Recruiter</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
         </div>
-        <div>
-          <label>Email</label>
-          <input type="email" id="nu-email" placeholder="priya@questalliance.net">
-        </div>
-        <div>
-          <label>Password</label>
-          <input type="password" id="nu-password" placeholder="Temporary password">
-        </div>
-        <div>
-          <label>Role</label>
-          <select id="nu-role">
-            <option value="recruiter">Recruiter</option>
-            <option value="admin">Admin</option>
-          </select>
+        <div class="add-user-err" id="add-user-err"></div>
+        <div class="add-user-ok" id="add-user-ok"></div>
+        <div style="margin-top:16px">
+          <button class="screen-btn primary" onclick="addUser()">Add User</button>
         </div>
       </div>
-      <div class="add-user-err" id="add-user-err"></div>
-      <div class="add-user-ok" id="add-user-ok"></div>
-      <div style="margin-top:16px">
-        <button class="screen-btn primary" onclick="addUser()">Add User</button>
+    </div>
+
+    <!-- Error log panel -->
+    <div id="admin-panel-errors" style="display:none">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:18px;font-weight:700">Upload Error Log</div>
+          <div style="font-size:13px;color:var(--grey);margin-top:2px">Errors when users tried to upload documents. Most recent first.</div>
+        </div>
+        <button class="tbl-action" onclick="loadErrors()" style="margin-left:auto">↻ Refresh</button>
+      </div>
+      <div id="err-log-content">
+        <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:48px;text-align:center;color:var(--grey)">
+          <div style="font-size:36px;margin-bottom:12px">⏳</div>Loading…
+        </div>
       </div>
     </div>
   </main>
@@ -780,7 +834,77 @@ async function logout() {
 }
 
 // ── Admin ───────────────────────────────────────────────────────────────────────
-function goAdmin() { loadUsers(); showScreen("admin"); }
+function goAdmin() { switchAdminTab("users"); loadUsers(); loadErrors(); showScreen("admin"); }
+
+function switchAdminTab(tab) {
+  ["users","errors"].forEach(t => {
+    document.getElementById("admin-panel-" + t).style.display = t === tab ? "" : "none";
+    document.getElementById("tab-" + t).classList.toggle("active", t === tab);
+  });
+}
+
+async function loadErrors() {
+  const content = document.getElementById("err-log-content");
+  if (!content) return;
+  try {
+    const res = await fetch("/api/admin/errors");
+    if (!res.ok) { content.innerHTML = '<div style="padding:40px;text-align:center;color:var(--grey)">⚠️ Could not load error log.</div>'; return; }
+    const errors = await res.json();
+    const pending = errors.filter(e => e.status === "needs-action").length;
+    const badge = document.getElementById("err-tab-badge");
+    if (badge) { badge.textContent = pending; badge.style.display = pending ? "" : "none"; }
+    if (!errors.length) {
+      content.innerHTML = '<div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:48px;text-align:center;color:var(--grey)"><div style="font-size:36px;margin-bottom:12px">✅</div><strong>No upload errors recorded</strong><p style="margin-top:6px;font-size:13px">Errors will appear here if users run into problems uploading documents.</p></div>';
+      return;
+    }
+    content.innerHTML = errors.map(e => renderErrEntry(e)).join("");
+  } catch {
+    content.innerHTML = '<div style="padding:40px;text-align:center;color:var(--grey)">⚠️ Failed to connect to error log.</div>';
+  }
+}
+
+function renderErrEntry(e) {
+  const ts = e.timestamp ? new Date(e.timestamp).toLocaleString() : "Unknown time";
+  const resolved = e.status === "resolved";
+  const icon = { pdf: "📄", doc: "📝", docx: "📝" }[e.file_type] || "📁";
+  return `<div class="err-entry" id="err-entry-${e.id}">
+    <div class="err-entry-top">
+      <span style="font-size:22px;flex-shrink:0;margin-top:2px">${icon}</span>
+      <div class="err-entry-meta">
+        <div class="err-entry-filename">${e.filename || "Unknown file"}</div>
+        <div class="err-entry-detail">
+          <span>🕐 ${ts}</span>
+          ${e.role_title ? `<span>📋 ${e.role_title}</span>` : ""}
+          ${e.uploaded_by ? `<span>👤 ${e.uploaded_by}</span>` : ""}
+          ${e.file_type ? `<span>.${e.file_type.toUpperCase()}</span>` : ""}
+        </div>
+      </div>
+      <span class="err-status ${e.status || 'needs-action'}">${resolved ? "Resolved" : "Needs Action"}</span>
+    </div>
+    <div class="err-body">
+      <div class="err-section-label" style="color:var(--grey)">What happened</div>
+      <div class="err-what">${e.error_plain || "An unknown error occurred."}</div>
+      <div class="err-section-label" style="color:var(--blue-dark)">💡 How to fix it</div>
+      <div class="err-fix">${e.fix_suggestion || "Try uploading a different version of the file."}</div>
+    </div>
+    <div class="err-actions">
+      ${!resolved
+        ? `<button class="tbl-action" onclick="resolveError(${e.id}, this)">Mark as Resolved</button>`
+        : `<button class="tbl-action" disabled style="opacity:.5;cursor:default">✓ Resolved</button>`}
+    </div>
+  </div>`;
+}
+
+async function resolveError(id, btn) {
+  btn.disabled = true; btn.textContent = "Saving…";
+  try {
+    await fetch(`/api/admin/errors/${id}`, {
+      method: "PATCH", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({status: "resolved"})
+    });
+    loadErrors();
+  } catch { btn.disabled = false; btn.textContent = "Mark as Resolved"; }
+}
 
 async function loadUsers() {
   try {

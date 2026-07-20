@@ -91,6 +91,21 @@ async def admin_delete_user(uid: int, qs_token: Optional[str] = Cookie(default=N
     _auth.delete_user(uid, admin["id"])
     return {"ok": True}
 
+@app.get("/api/admin/errors")
+async def admin_get_errors(qs_token: Optional[str] = Cookie(default=None)):
+    _auth.require_admin(qs_token=qs_token)
+    return _auth.get_upload_errors()
+
+class ErrorStatusUpdate(BaseModel):
+    status: str = "resolved"
+
+@app.patch("/api/admin/errors/{error_id}")
+async def admin_update_error(error_id: int, body: ErrorStatusUpdate,
+                              qs_token: Optional[str] = Cookie(default=None)):
+    _auth.require_admin(qs_token=qs_token)
+    _auth.update_error_status(error_id, body.status)
+    return {"ok": True}
+
 # ── Calibration notes routes ───────────────────────────────────────────────────
 
 class CalibNote(BaseModel):
@@ -114,6 +129,34 @@ async def delete_calibration(note_id: int, qs_token: Optional[str] = Cookie(defa
     return {"ok": True}
 
 # ── File parsing ───────────────────────────────────────────────────────────────
+
+def _plain_error(filename: str, exc: Exception):
+    msg = str(exc).lower()
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "unknown"
+    if "password" in msg or "encrypt" in msg:
+        return (
+            f"The file '{filename}' is password-protected and cannot be opened.",
+            "Remove the password from the file before uploading. In Word/Acrobat go to File → Protect/Security and remove the password."
+        )
+    if "corrupt" in msg or "invalid" in msg or "bad" in msg:
+        return (
+            f"The file '{filename}' appears to be damaged or incomplete.",
+            "Try re-saving from the original app (Word, Acrobat) and upload again."
+        )
+    if ext == "pdf":
+        return (
+            f"The PDF '{filename}' could not be read. It may be a scanned image without selectable text.",
+            "Use an OCR tool (Adobe Acrobat, online2pdf.com) to convert the scanned PDF to text-based PDF before uploading."
+        )
+    if ext in ("doc", "docx"):
+        return (
+            f"The Word document '{filename}' could not be opened.",
+            "Re-save the file as .docx in Microsoft Word or Google Docs, then upload again."
+        )
+    return (
+        f"The file '{filename}' could not be read ({ext.upper()} format).",
+        "Try converting the file to PDF or DOCX and uploading again. If the problem continues, contact your administrator."
+    )
 
 def extract_text_from_pdf(b: bytes) -> str:
     with pdfplumber.open(io.BytesIO(b)) as p:
@@ -423,13 +466,20 @@ def generate_excel(results: list, role_title: str = "", history: dict = None, sc
 
 @app.post("/api/parse-jd")
 async def parse_jd(file: UploadFile = File(...), qs_token: Optional[str] = Cookie(default=None)):
-    _auth.get_current_user(qs_token)
+    user = _auth.get_current_user(qs_token)
     try:
         b = await file.read()
         text = parse_bytes(b, file.filename)
         return {"text": text}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Could not read file: {e}")
+        error_plain, fix_suggestion = _plain_error(file.filename, e)
+        ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "unknown"
+        try:
+            _auth.log_upload_error(file.filename, ext, "JD upload", user["username"],
+                                   type(e).__name__, error_plain, fix_suggestion)
+        except Exception:
+            pass
+        raise HTTPException(status_code=400, detail=error_plain)
 
 
 @app.post("/api/detect-competencies")
@@ -456,13 +506,20 @@ async def screen(
     files: List[UploadFile] = File(...),
     qs_token: Optional[str] = Cookie(default=None),
 ):
-    _auth.get_current_user(qs_token)
+    user = _auth.get_current_user(qs_token)
     cvs = {}
     for f in files:
         try:
             cvs[f.filename] = parse_bytes(await f.read(), f.filename)
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Could not read {f.filename}: {e}")
+            error_plain, fix_suggestion = _plain_error(f.filename, e)
+            ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else "unknown"
+            try:
+                _auth.log_upload_error(f.filename, ext, role_title or "unknown",
+                                       user["username"], type(e).__name__, error_plain, fix_suggestion)
+            except Exception:
+                pass
+            raise HTTPException(status_code=400, detail=error_plain)
 
     calib = json.loads(calibration)
     past_examples = _auth.get_screening_examples(role_title) if role_title else []
