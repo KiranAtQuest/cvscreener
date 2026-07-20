@@ -375,6 +375,18 @@ textarea { min-height: 140px; line-height: 1.5; }
 .cc-action.sl-active:hover { background: #145222; border-color: #145222; }
 .cc-action.rj-active:hover { background: #a01f1f; border-color: #a01f1f; }
 
+/* Two-level layout */
+.level-section { }
+.level-header { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+.level-badge {
+  display: inline-block; padding: 4px 14px; border-radius: 20px;
+  font-size: 12px; font-weight: 700; letter-spacing: .3px;
+}
+.level-badge.level2 { background: var(--blue-bg); color: var(--blue-dark); border: 1px solid #B8DCF0; }
+.level-badge.level1 { background: #F5F5F5; color: #888; border: 1px solid #DDD; }
+.level-count { font-size: 13px; color: var(--grey); font-weight: 600; }
+.level-desc { font-size: 13px; color: var(--grey); margin-bottom: 16px; line-height: 1.5; }
+
 .truncate-banner {
   background: var(--orange-bg); border: 1.5px solid #F7BD5E; border-radius: var(--radius);
   padding: 12px 18px; font-size: 13px; color: var(--orange-dark);
@@ -713,9 +725,9 @@ textarea { min-height: 140px; line-height: 1.5; }
     <div class="results-header">
       <h1 id="results-title">Screening Results</h1>
       <div class="results-stats">
-        <div class="stat-pill blue" id="stat-total"></div>
-        <div class="stat-pill green" id="stat-sl"></div>
-        <div class="stat-pill red" id="stat-rj"></div>
+        <div class="stat-pill blue"  id="stat-total"></div>
+        <div class="stat-pill green" id="stat-eligible"></div>
+        <div class="stat-pill red"   id="stat-filtered"></div>
       </div>
     </div>
     <div class="learning-banner" id="learning-banner" style="display:none"></div>
@@ -729,13 +741,38 @@ textarea { min-height: 140px; line-height: 1.5; }
       </p>
       <button class="btn-sm blue" id="save-learning-btn" onclick="saveLearningExamples()">Save Examples</button>
     </div>
-    <div class="filter-bar">
-      <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
-      <button class="filter-btn" onclick="setFilter('shortlisted', this)">Shortlisted</button>
-      <button class="filter-btn" onclick="setFilter('pending', this)">Pending</button>
-      <button class="filter-btn" onclick="setFilter('rejected', this)">Rejected</button>
+
+    <!-- Level 2: Eligible candidates -->
+    <div class="level-section" id="level2-section">
+      <div class="level-header">
+        <div class="level-badge level2">Level 2 — For Review</div>
+        <span id="level2-count" class="level-count"></span>
+      </div>
+      <p class="level-desc">These candidates meet the minimum threshold (≥30% match). Rank and shortlist for the hiring manager.</p>
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="setFilter('all', this)">All eligible</button>
+        <button class="filter-btn" onclick="setFilter('shortlisted', this)">Shortlisted</button>
+        <button class="filter-btn" onclick="setFilter('pending', this)">Pending</button>
+        <button class="filter-btn" onclick="setFilter('rejected', this)">Rejected</button>
+      </div>
+      <div class="candidate-grid" id="candidate-grid"></div>
+      <div id="no-eligible" style="display:none;padding:32px;text-align:center;color:var(--grey);background:#fff;border-radius:var(--radius);border:1px solid var(--border)">
+        No candidates met the minimum 30% match threshold for this role.
+      </div>
     </div>
-    <div class="candidate-grid" id="candidate-grid"></div>
+
+    <!-- Level 1: Filtered out -->
+    <div class="level-section" id="level1-section" style="margin-top:32px">
+      <div class="level-header" style="cursor:pointer" onclick="toggleFiltered()">
+        <div class="level-badge level1">Level 1 — Auto-filtered</div>
+        <span id="level1-count" class="level-count"></span>
+        <span id="filtered-toggle" style="margin-left:auto;font-size:13px;color:var(--grey)">▸ Show filtered</span>
+      </div>
+      <p class="level-desc">These candidates scored below 30% and do not meet minimum requirements. Shown for transparency only.</p>
+      <div id="filtered-grid" style="display:none;margin-top:16px">
+        <div class="candidate-grid" id="filtered-candidate-grid"></div>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -1351,12 +1388,17 @@ function renderResults() {
   const title = document.getElementById("results-title");
   title.textContent = state.roleTitle ? `Results — ${state.roleTitle}` : "Screening Results";
 
-  const sl = state.results.filter(r => getDecision(r) === true).length;
-  const rj = state.results.filter(r => getDecision(r) === false).length;
-  const decided = sl + rj;
-  document.getElementById("stat-total").textContent = `${state.results.length} total`;
-  document.getElementById("stat-sl").textContent    = `${sl} shortlisted`;
-  document.getElementById("stat-rj").textContent    = `${rj} rejected`;
+  const eligible = state.results.filter(r => !r.filtered);
+  const filtered = state.results.filter(r => r.filtered);
+  const sl = eligible.filter(r => getDecision(r) === true).length;
+  const decided = eligible.filter(r => getDecision(r) !== null && getDecision(r) !== undefined).length;
+
+  document.getElementById("stat-total").textContent    = `${state.results.length} screened`;
+  document.getElementById("stat-eligible").textContent = `${eligible.length} eligible`;
+  document.getElementById("stat-filtered").textContent = `${filtered.length} auto-filtered`;
+
+  document.getElementById("level2-count").textContent = `${eligible.length} candidate${eligible.length !== 1 ? "s" : ""} for review`;
+  document.getElementById("level1-count").textContent = `${filtered.length} removed`;
 
   // Learning banner
   const lb = document.getElementById("learning-banner");
@@ -1367,56 +1409,71 @@ function renderResults() {
     lb.style.display = "none";
   }
 
-  // Save-learning bar — show once at least one decision has been made and role title exists
   const slBar = document.getElementById("save-learning-bar");
   slBar.style.display = (decided > 0 && state.roleTitle) ? "" : "none";
 
   document.getElementById("truncate-banner").style.display = state.truncated ? "" : "none";
 
-  let visible = state.results;
-  if (state.currentFilter === "shortlisted") visible = state.results.filter(r => getDecision(r) === true);
-  else if (state.currentFilter === "rejected") visible = state.results.filter(r => getDecision(r) === false);
-  else if (state.currentFilter === "pending")  visible = state.results.filter(r => getDecision(r) == null);
+  // Level 2: eligible candidates (with filter)
+  let visible = eligible;
+  if (state.currentFilter === "shortlisted") visible = eligible.filter(r => getDecision(r) === true);
+  else if (state.currentFilter === "rejected") visible = eligible.filter(r => getDecision(r) === false);
+  else if (state.currentFilter === "pending")  visible = eligible.filter(r => getDecision(r) == null);
 
+  document.getElementById("no-eligible").style.display = eligible.length === 0 ? "" : "none";
   const grid = document.getElementById("candidate-grid");
-  grid.innerHTML = visible.map((r, _) => {
-    const realIdx = state.results.indexOf(r);
-    const sc = r.overall || 0;
-    const b = band(sc);
-    const dec = getDecision(r);
-    const cardClass = dec === true ? "shortlisted" : dec === false ? "rejected" : "";
-    const slClass = dec === true ? "sl-active" : "";
-    const rjClass = dec === false ? "rj-active" : "";
-    const name = r.name || r.filename || "—";
-    const role = r.role || "—";
-    const yrs  = r.years != null ? r.years + " yrs" : "";
-    const loc  = r.location || "";
+  grid.innerHTML = visible.map(r => candidateCardHTML(r, false)).join("");
 
-    return `<div class="cand-card ${cardClass}" onclick="openDetail(${realIdx})">
-      <div class="cc-top">
-        <div class="cc-ring" style="width:58px;height:58px;position:relative">
-          ${scoreRingSVG(sc, 58, b, "")}
-        </div>
-        <div class="cc-info">
-          <div class="cc-name">${name}</div>
-          <div class="cc-role">${role}</div>
-          <div class="cc-meta">
-            ${yrs ? `<span>⏱ ${yrs}</span>` : ""}
-            ${loc ? `<span>📍 ${loc}</span>` : ""}
-          </div>
+  // Level 2 section visibility
+  document.getElementById("level2-section").style.display = "";
+  // Level 1: filtered candidates (collapsed by default)
+  document.getElementById("level1-section").style.display = filtered.length ? "" : "none";
+  const fgrid = document.getElementById("filtered-candidate-grid");
+  fgrid.innerHTML = filtered.map(r => candidateCardHTML(r, true)).join("");
+}
+
+function candidateCardHTML(r, isFiltered) {
+  const realIdx = state.results.indexOf(r);
+  const sc = r.overall || 0;
+  const b = band(sc);
+  const dec = getDecision(r);
+  const cardClass = isFiltered ? "filtered-card" : (dec === true ? "shortlisted" : dec === false ? "rejected" : "");
+  const slClass = dec === true ? "sl-active" : "";
+  const rjClass = dec === false ? "rj-active" : "";
+
+  return `<div class="cand-card ${cardClass}" onclick="openDetail(${realIdx})" style="${isFiltered ? 'opacity:.7' : ''}">
+    <div class="cc-top">
+      <div class="cc-ring" style="width:58px;height:58px;position:relative">
+        ${scoreRingSVG(sc, 58, b, "")}
+      </div>
+      <div class="cc-info">
+        <div class="cc-name">${r.name || r.filename || "—"}</div>
+        <div class="cc-role">${r.role || "—"}</div>
+        <div class="cc-meta">
+          ${r.years != null ? `<span>⏱ ${r.years} yrs</span>` : ""}
+          ${r.location ? `<span>📍 ${r.location}</span>` : ""}
+          ${isFiltered ? `<span style="color:var(--grey)">⛔ Below threshold</span>` : ""}
         </div>
       </div>
-      <div class="cc-summary">${(r.summary||"").slice(0,120)}${(r.summary||"").length>120?"…":""}</div>
-      <div class="cc-footer" onclick="event.stopPropagation()">
-        <button class="cc-action ${slClass}" onclick="toggleDecision(${realIdx},'shortlist')">
-          ${dec === true ? "✓ Shortlisted" : "Shortlist"}
-        </button>
-        <button class="cc-action ${rjClass}" onclick="toggleDecision(${realIdx},'reject')">
-          ${dec === false ? "✗ Rejected" : "Reject"}
-        </button>
-      </div>
-    </div>`;
-  }).join("");
+    </div>
+    <div class="cc-summary">${(r.summary||"").slice(0,120)}${(r.summary||"").length>120?"…":""}</div>
+    ${!isFiltered ? `<div class="cc-footer" onclick="event.stopPropagation()">
+      <button class="cc-action ${slClass}" onclick="toggleDecision(${realIdx},'shortlist')">
+        ${dec === true ? "✓ Shortlisted" : "Shortlist"}
+      </button>
+      <button class="cc-action ${rjClass}" onclick="toggleDecision(${realIdx},'reject')">
+        ${dec === false ? "✗ Rejected" : "Reject"}
+      </button>
+    </div>` : ""}
+  </div>`;
+}
+
+function toggleFiltered() {
+  const grid = document.getElementById("filtered-grid");
+  const toggle = document.getElementById("filtered-toggle");
+  const open = grid.style.display === "none";
+  grid.style.display = open ? "" : "none";
+  toggle.textContent = open ? "▾ Hide filtered" : "▸ Show filtered";
 }
 
 function toggleDecision(idx, action) {

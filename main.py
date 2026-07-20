@@ -224,6 +224,18 @@ def build_prompt(jd: str, competencies: str, cvs: dict, calibration: list,
         )
     return f"""You are an expert HR screener for Quest Alliance, an NGO focused on youth skilling in India.
 
+## Screening Process — Two Levels
+This screening operates in two levels:
+
+LEVEL 1 — FILTER (automatic): Candidates with an overall match score below 30 are junk
+applications that do not meet minimum requirements and should not consume recruiter time.
+Set "filtered": true for these candidates. Provide only minimal details for filtered candidates.
+
+LEVEL 2 — RANK (for human review): Candidates scoring 30 or above are eligible and must be
+ranked carefully for recruiter decision-making. Within eligible candidates:
+  - Score 65–100: Strong/Possible match — recommend for shortlisting
+  - Score 30–64: Weak match — eligible but recruiter should review carefully before deciding
+
 ## Job Description
 {jd}
 
@@ -240,8 +252,9 @@ candidates without it. Reflect this in the "strengths" array and factor it into 
 {cv_block}
 
 ## Task
-Review each candidate carefully and return a JSON array sorted best-to-worst. Each object MUST have:
-- "rank": integer from 1
+Review every candidate and return a JSON array sorted best-to-worst (highest overall score first,
+filtered candidates at the end). Each object MUST have:
+- "rank": integer from 1 (rank among ALL candidates including filtered)
 - "filename": CV filename exactly as given
 - "name": candidate's full name (extract from CV)
 - "role": their current/most recent role title
@@ -250,14 +263,15 @@ Review each candidate carefully and return a JSON array sorted best-to-worst. Ea
 - "email": email address if present, else ""
 - "phone": phone if present, else ""
 - "overall": integer 0-100 match score
-- "scores": array of 5 integers (one per competency, same order as competencies)
-- "competency_labels": array of 5 strings (the competency names scored)
-- "shortlisted": true if overall >= 65
-- "summary": 2-3 sentence AI summary of the candidate's fit
-- "strengths": array of 2-4 short strength strings
-- "gaps": array of 1-2 gap strings
-- "flag": a one-sentence thing to verify, or null
-- "evidence": array of 2-3 objects with "label" (competency name, uppercase) and "text" (direct quote or paraphrase from CV)
+- "filtered": true if overall < 30 (Level 1 filter — junk application), else false
+- "scores": array of 5 integers (one per competency) — empty array [] for filtered candidates
+- "competency_labels": array of 5 strings (competency names) — empty array [] for filtered candidates
+- "shortlisted": true if overall >= 65 AND filtered is false, else false
+- "summary": for eligible candidates: 2-3 sentence fit summary; for filtered: one sentence why they don't meet minimum requirements
+- "strengths": array of 2-4 short strings — empty [] for filtered candidates
+- "gaps": array of 1-3 gap strings (for filtered, list the critical missing requirements)
+- "flag": one-sentence verification note, or null
+- "evidence": array of 2-3 objects with "label" and "text" — empty [] for filtered candidates
 
 Return ONLY the JSON array, no markdown fences."""
 
