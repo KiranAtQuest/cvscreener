@@ -14,10 +14,10 @@
   --red: #F15A29; --red-bg: #FDE7DE; --red-dark: #C23A18;
   --green: #1B6E2E; --green-bg: #E8F5EC; --green-light: #2E7D32;
   --danger-red: #C62828; --danger-bg: #FFEBEE;
-  --navy: #1A1A2E; --grey: #5E6675; --light: #F4F7FA; --border: #E4E9EF;
+  --navy: #222838; --grey: #5E6675; --light: #F4F7FA; --border: #E4E9EF;
   --radius: 12px; --shadow: 0 2px 12px rgba(0,0,0,.07);
 }
-html, body { height: 100%; font-family: 'Work Sans', sans-serif; background: var(--light); color: var(--navy); }
+html, body { height: 100%; font-family: 'Work Sans', Verdana, sans-serif; background: var(--light); color: var(--navy); }
 body { display: flex; flex-direction: column; }
 
 /* ── Nav ──────────────────────────────────────────────────────── */
@@ -45,11 +45,142 @@ nav .nav-btn.outline:hover { background: #ffffff15; }
 nav .nav-btn.primary { background: var(--blue); color: #fff; }
 nav .nav-btn.primary:hover { background: var(--blue-dark); }
 nav .nav-btn:disabled { opacity: .4; cursor: not-allowed; }
+#nav-user { font-size: 12px; color: #9BBDD4; display: none; }
 
 /* ── Screens ──────────────────────────────────────────────────── */
 .screen { display: none; flex: 1; flex-direction: column; }
 .screen.active { display: flex; }
 main { flex: 1; padding: 32px 28px; max-width: 1100px; width: 100%; margin: 0 auto; }
+
+/* ── Login screen ─────────────────────────────────────────────── */
+#screen-login { align-items: center; justify-content: center; background: var(--light); }
+.login-box {
+  background: #fff; border-radius: 16px; border: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(0,0,0,.10); padding: 48px 44px; width: 100%; max-width: 420px;
+}
+.login-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+.login-logo-mark {
+  width: 44px; height: 44px; border-radius: 10px; background: var(--blue);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 18px; color: #fff;
+}
+.login-logo-text h2 { font-size: 18px; font-weight: 700; }
+.login-logo-text p { font-size: 13px; color: var(--grey); }
+.login-box h3 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+.login-box .login-sub { font-size: 13px; color: var(--grey); margin-bottom: 28px; }
+.form-group { margin-bottom: 18px; }
+.form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.form-group input {
+  width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
+  padding: 11px 14px; font-family: inherit; font-size: 14px; color: var(--navy);
+  transition: border .15s;
+}
+.form-group input:focus { outline: none; border-color: var(--blue); }
+.login-btn {
+  width: 100%; padding: 13px; border-radius: 9px; font-size: 15px; font-weight: 700;
+  background: var(--blue); color: #fff; border: none; cursor: pointer;
+  font-family: inherit; transition: .15s; margin-top: 4px;
+}
+.login-btn:hover { background: var(--blue-dark); }
+.login-btn:disabled { opacity: .5; cursor: not-allowed; }
+.login-err { font-size: 13px; color: var(--danger-red); margin-top: 10px; text-align: center; min-height: 18px; }
+
+/* ── Admin screen ─────────────────────────────────────────────── */
+.admin-tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--border); margin-bottom: 24px; }
+.admin-tab {
+  padding: 10px 20px; font-size: 14px; font-weight: 600; border: none; background: none;
+  cursor: pointer; color: var(--grey); font-family: inherit; border-bottom: 2px solid transparent;
+  margin-bottom: -2px; transition: .15s;
+}
+.admin-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+.admin-panel { display: none; }
+.admin-panel.active { display: block; }
+
+.admin-section-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.admin-section-sub { font-size: 13px; color: var(--grey); margin-bottom: 24px; }
+
+.users-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.users-table th {
+  background: var(--navy); color: #fff; text-align: left;
+  padding: 11px 14px; font-weight: 600; font-size: 12px; letter-spacing: .3px;
+}
+.users-table th:first-child { border-radius: 8px 0 0 0; }
+.users-table th:last-child  { border-radius: 0 8px 0 0; }
+.users-table td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.users-table tr:hover td { background: var(--light); }
+.role-badge {
+  display: inline-block; padding: 3px 10px; border-radius: 12px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
+}
+.role-badge.admin     { background: #E8EAF6; color: #3949AB; }
+.role-badge.recruiter { background: var(--blue-bg); color: var(--blue-dark); }
+.status-badge {
+  display: inline-block; padding: 3px 10px; border-radius: 12px;
+  font-size: 11px; font-weight: 700;
+}
+.status-badge.active   { background: var(--green-bg); color: var(--green); }
+.status-badge.inactive { background: var(--danger-bg); color: var(--danger-red); }
+
+.add-user-form {
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 24px; margin-top: 24px;
+}
+.add-user-form h3 { font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media(max-width:600px){ .form-row { grid-template-columns: 1fr; } }
+.form-row .form-group { margin-bottom: 0; }
+.add-user-form .form-group { margin-bottom: 14px; }
+.add-user-form select {
+  width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; font-family: inherit; font-size: 13px; color: var(--navy);
+  background: #fff;
+}
+.add-user-form input {
+  width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; font-family: inherit; font-size: 13px; color: var(--navy);
+}
+.add-user-form input:focus, .add-user-form select:focus { outline: none; border-color: var(--blue); }
+
+/* ── Error log ────────────────────────────────────────────────── */
+.err-log-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.err-count-pill {
+  padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 700;
+  background: var(--danger-bg); color: var(--danger-red); border: 1px solid #FFCDD2;
+}
+.err-log-empty {
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 48px; text-align: center; color: var(--grey); font-size: 14px;
+}
+.err-log-empty .err-empty-icon { font-size: 40px; margin-bottom: 12px; }
+.err-entries { display: flex; flex-direction: column; gap: 12px; }
+.err-entry {
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px 22px; box-shadow: var(--shadow);
+}
+.err-entry-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.err-entry-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+.err-entry-meta { flex: 1; min-width: 0; }
+.err-entry-filename { font-size: 15px; font-weight: 700; color: var(--navy); margin-bottom: 3px; word-break: break-all; }
+.err-entry-detail { font-size: 12px; color: var(--grey); display: flex; gap: 14px; flex-wrap: wrap; }
+.err-status-badge {
+  display: inline-block; padding: 3px 12px; border-radius: 12px;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+.err-status-badge.needs-action { background: var(--danger-bg); color: var(--danger-red); border: 1px solid #FFCDD2; }
+.err-status-badge.resolved     { background: var(--green-bg); color: var(--green); border: 1px solid #A5D6A7; }
+.err-body { background: var(--light); border-radius: 8px; padding: 14px 16px; }
+.err-what-label { font-size: 11px; font-weight: 700; color: var(--grey); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 5px; }
+.err-what-text { font-size: 13px; color: var(--navy); line-height: 1.6; margin-bottom: 12px; }
+.err-fix-label { font-size: 11px; font-weight: 700; color: var(--blue-dark); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 5px; }
+.err-fix-text { font-size: 13px; color: var(--blue-dark); line-height: 1.6; background: var(--blue-bg); border-radius: 6px; padding: 10px 12px; }
+.err-entry-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+.err-resolve-btn {
+  padding: 6px 16px; border-radius: 7px; font-size: 12px; font-weight: 600;
+  cursor: pointer; border: 1.5px solid var(--border); background: #fff;
+  color: var(--grey); font-family: inherit; transition: .15s;
+}
+.err-resolve-btn:hover { border-color: var(--green); color: var(--green); }
+.err-resolve-btn.resolved { border-color: var(--green); color: var(--green); background: var(--green-bg); cursor: default; }
 
 /* ── Setup screen ─────────────────────────────────────────────── */
 .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
@@ -61,16 +192,16 @@ main { flex: 1; padding: 32px 28px; max-width: 1100px; width: 100%; margin: 0 au
 .card h2 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
 .card .card-sub { font-size: 13px; color: var(--grey); margin-bottom: 20px; }
 label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
-textarea, input[type=text] {
+textarea, input[type=text], input[type=password] {
   width: 100%; border: 1.5px solid var(--border); border-radius: 8px;
   padding: 10px 12px; font-family: inherit; font-size: 13px; color: var(--navy);
   resize: vertical; transition: border .15s; background: #fff;
 }
-textarea:focus, input[type=text]:focus { outline: none; border-color: var(--blue); }
+textarea:focus, input[type=text]:focus, input[type=password]:focus { outline: none; border-color: var(--blue); }
 textarea { min-height: 140px; line-height: 1.5; }
 
 /* Competency chips */
-.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; min-height: 8px; }
 .chip {
   display: flex; align-items: center; gap: 6px;
   background: var(--blue-bg); color: var(--blue-dark);
@@ -81,7 +212,7 @@ textarea { min-height: 140px; line-height: 1.5; }
   cursor: pointer; font-size: 14px; line-height: 1; color: var(--blue);
   background: none; border: none; font-family: inherit; padding: 0;
 }
-.chip-input-row { display: flex; gap: 8px; }
+.chip-input-row { display: flex; gap: 8px; margin-bottom: 8px; }
 .chip-input-row input { flex: 1; }
 .btn-sm {
   padding: 8px 16px; border-radius: 7px; font-size: 13px; font-weight: 600;
@@ -92,8 +223,9 @@ textarea { min-height: 140px; line-height: 1.5; }
 .btn-sm.blue { background: var(--blue); color: #fff; }
 .btn-sm.blue:hover { background: var(--blue-dark); }
 .btn-sm.blue:disabled { opacity: .45; cursor: not-allowed; }
-.detect-btn { width: 100%; margin-top: 10px; }
+.detect-btn { width: 100%; margin-top: 4px; }
 .detect-note { font-size: 11px; color: var(--grey); margin-top: 8px; }
+.comp-cap-note { font-size: 11px; color: var(--orange-dark); margin-top: 6px; display: none; }
 
 /* Drop zone */
 .dropzone {
@@ -124,10 +256,6 @@ textarea { min-height: 140px; line-height: 1.5; }
 .file-chip .fc-del:hover { color: var(--danger-red); }
 .err-msg { font-size: 12px; color: var(--danger-red); margin-top: 8px; }
 
-/* Role title */
-.role-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.role-row label { margin: 0; flex-shrink: 0; }
-
 /* Calibration */
 .calib-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; max-height: 180px; overflow-y: auto; }
 .calib-item {
@@ -151,6 +279,15 @@ textarea { min-height: 140px; line-height: 1.5; }
 .screen-btn.primary:disabled { opacity: .45; cursor: not-allowed; }
 .screen-btn.outline { background: none; border: 2px solid var(--border); color: var(--grey); }
 .screen-btn.outline:hover { border-color: var(--blue); color: var(--blue); }
+
+/* Info banners */
+.banner {
+  border-radius: var(--radius); padding: 12px 18px; font-size: 13px;
+  margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+}
+.banner.orange { background: var(--orange-bg); border: 1.5px solid #F7BD5E; color: var(--orange-dark); }
+.banner.green  { background: var(--green-bg); border: 1.5px solid #A5D6A7; color: var(--green); }
+.banner.blue   { background: var(--blue-bg); border: 1.5px solid #B8DCF0; color: var(--blue-dark); }
 
 /* Progress overlay */
 .progress-overlay {
@@ -182,9 +319,9 @@ textarea { min-height: 140px; line-height: 1.5; }
   padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
   border: 1.5px solid var(--border); background: #fff;
 }
-.stat-pill.blue { background: var(--blue-bg); color: var(--blue-dark); border-color: #B8DCF0; }
-.stat-pill.green { background: var(--green-bg); color: var(--green); border-color: #A5D6A7; }
-.stat-pill.red { background: var(--danger-bg); color: var(--danger-red); border-color: #FFCDD2; }
+.stat-pill.blue   { background: var(--blue-bg); color: var(--blue-dark); border-color: #B8DCF0; }
+.stat-pill.green  { background: var(--green-bg); color: var(--green); border-color: #A5D6A7; }
+.stat-pill.red    { background: var(--danger-bg); color: var(--danger-red); border-color: #FFCDD2; }
 
 .filter-bar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
 .filter-btn {
@@ -208,7 +345,7 @@ textarea { min-height: 140px; line-height: 1.5; }
 }
 .cand-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.1); border-color: #B8DCF0; }
 .cand-card.shortlisted { border-color: #A5D6A7; }
-.cand-card.rejected { border-color: #FFCDD2; }
+.cand-card.rejected    { border-color: #FFCDD2; }
 .cc-top { padding: 16px; display: flex; gap: 14px; align-items: flex-start; }
 .cc-ring { position: relative; flex-shrink: 0; }
 .cc-ring svg { display: block; }
@@ -236,11 +373,20 @@ textarea { min-height: 140px; line-height: 1.5; }
 .cc-action.sl-active:hover { background: #145222; border-color: #145222; }
 .cc-action.rj-active:hover { background: #a01f1f; border-color: #a01f1f; }
 
-.truncate-banner {
-  background: var(--orange-bg); border: 1.5px solid #F7BD5E; border-radius: var(--radius);
-  padding: 12px 18px; font-size: 13px; color: var(--orange-dark);
-  margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+/* Save learning bar */
+.learn-bar {
+  background: var(--navy); color: #fff; border-radius: var(--radius);
+  padding: 14px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 14px;
 }
+.learn-bar .lb-text { flex: 1; font-size: 13px; }
+.learn-bar .lb-text strong { display: block; font-size: 14px; margin-bottom: 2px; }
+.learn-bar button {
+  padding: 8px 20px; border-radius: 7px; font-size: 13px; font-weight: 700;
+  border: 1.5px solid #ffffff50; background: transparent; color: #fff;
+  cursor: pointer; font-family: inherit; white-space: nowrap; transition: .15s;
+}
+.learn-bar button:hover { background: #ffffff20; }
+.learn-bar button.saved { border-color: var(--green); color: #6FCF97; cursor: default; }
 
 /* ── Detail screen ────────────────────────────────────────────── */
 .detail-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start; }
@@ -266,22 +412,19 @@ textarea { min-height: 140px; line-height: 1.5; }
 .summary-text { font-size: 14px; line-height: 1.7; color: #333; }
 
 .sg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.sg-box {
-  border-radius: 10px; padding: 14px;
-}
+.sg-box { border-radius: 10px; padding: 14px; }
 .sg-box.strengths { background: var(--green-bg); border: 1px solid #A5D6A7; }
-.sg-box.gaps { background: var(--danger-bg); border: 1px solid #FFCDD2; }
+.sg-box.gaps      { background: var(--danger-bg); border: 1px solid #FFCDD2; }
 .sg-box h4 { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
 .sg-box.strengths h4 { color: var(--green); }
-.sg-box.gaps h4 { color: var(--danger-red); }
+.sg-box.gaps h4      { color: var(--danger-red); }
 .sg-list { list-style: none; display: flex; flex-direction: column; gap: 5px; }
 .sg-list li { font-size: 12px; line-height: 1.5; color: #333; padding-left: 14px; position: relative; }
 .sg-list li::before { content: '•'; position: absolute; left: 0; }
 .sg-box.strengths .sg-list li::before { color: var(--green); }
-.sg-box.gaps .sg-list li::before { color: var(--danger-red); }
+.sg-box.gaps      .sg-list li::before { color: var(--danger-red); }
 
 .comp-bars { display: flex; flex-direction: column; gap: 12px; }
-.comp-row { }
 .comp-label-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; }
 .comp-label { font-weight: 600; color: var(--navy); }
 .comp-val { font-weight: 700; }
@@ -295,13 +438,13 @@ textarea { min-height: 140px; line-height: 1.5; }
 
 .flag-box { background: var(--orange-bg); border: 1px solid #F7BD5E; border-radius: 10px; padding: 12px 14px; }
 .flag-box .flag-label { font-size: 11px; font-weight: 700; color: var(--orange-dark); text-transform: uppercase; margin-bottom: 4px; }
-.flag-box .flag-text { font-size: 13px; color: var(--orange-dark); line-height: 1.5; }
+.flag-box .flag-text  { font-size: 13px; color: var(--orange-dark); line-height: 1.5; }
 
 /* Sidebar */
 .score-box { background: #fff; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); padding: 20px; text-align: center; }
-.score-big { font-size: 48px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+.score-big   { font-size: 48px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
 .score-label { font-size: 12px; color: var(--grey); margin-bottom: 16px; }
-.band-badge { display: inline-block; padding: 5px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; margin-bottom: 16px; }
+.band-badge  { display: inline-block; padding: 5px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; margin-bottom: 16px; }
 .action-btns { display: flex; flex-direction: column; gap: 8px; }
 .action-btn {
   padding: 11px; border-radius: 8px; font-size: 13px; font-weight: 700;
@@ -316,9 +459,8 @@ textarea { min-height: 140px; line-height: 1.5; }
 .contact-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .contact-row:last-child { border: none; }
 .contact-row .cr-label { width: 50px; font-size: 11px; font-weight: 700; color: var(--grey); }
-.contact-row .cr-val { flex: 1; color: var(--navy); overflow: hidden; text-overflow: ellipsis; }
+.contact-row .cr-val   { flex: 1; color: var(--navy); overflow: hidden; text-overflow: ellipsis; }
 
-/* Calibration input in detail */
 .calib-feedback {
   background: #fff; border-radius: var(--radius); border: 1px solid var(--border);
   box-shadow: var(--shadow); padding: 16px;
@@ -347,13 +489,121 @@ textarea { min-height: 140px; line-height: 1.5; }
     </div>
   </a>
   <div class="spacer"></div>
+  <span id="nav-user"></span>
+  <button class="nav-btn outline" id="nav-admin" style="display:none" onclick="goAdmin()">⚙ Admin</button>
   <button class="nav-btn outline" id="nav-export-pdf" style="display:none" onclick="exportPDF()">⬇ PDF</button>
-  <button class="nav-btn outline" id="nav-export-xl" style="display:none" onclick="exportExcel()">⬇ Excel</button>
+  <button class="nav-btn outline" id="nav-export-xl"  style="display:none" onclick="exportExcel()">⬇ Excel</button>
   <button class="nav-btn primary" id="nav-new" style="display:none" onclick="goSetup()">＋ New Screening</button>
+  <button class="nav-btn outline" id="nav-logout" style="display:none" onclick="doLogout()">Sign out</button>
 </nav>
 
+<!-- ── Login screen ─────────────────────────────────────────────── -->
+<div class="screen active" id="screen-login" style="align-items:center;justify-content:center">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-mark">QA</div>
+      <div class="login-logo-text">
+        <h2>CV Screener</h2>
+        <p>Quest Alliance</p>
+      </div>
+    </div>
+    <h3>Welcome back</h3>
+    <p class="login-sub">Sign in to screen CVs and manage candidates.</p>
+    <div class="form-group">
+      <label for="login-username">Username</label>
+      <input type="text" id="login-username" placeholder="Enter your username" autocomplete="username"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="form-group">
+      <label for="login-password">Password</label>
+      <input type="password" id="login-password" placeholder="Enter your password" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Sign in</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- ── Admin screen ─────────────────────────────────────────────── -->
+<div class="screen" id="screen-admin">
+  <main>
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px">
+      <div>
+        <h1 style="font-size:22px;font-weight:700">Admin Panel</h1>
+        <p style="font-size:13px;color:var(--grey)">Manage users and monitor application health.</p>
+      </div>
+      <div style="flex:1"></div>
+      <button class="btn-sm outline" onclick="goSetup()">← Back to Screener</button>
+    </div>
+    <div class="admin-tabs">
+      <button class="admin-tab active" onclick="switchAdminTab('users',this)">Users</button>
+      <button class="admin-tab" onclick="switchAdminTab('errors',this)">Error Log</button>
+    </div>
+
+    <!-- Users panel -->
+    <div class="admin-panel active" id="admin-panel-users">
+      <div class="admin-section-title">User Management</div>
+      <div class="admin-section-sub">Add, edit roles, or deactivate users. The admin account cannot be deleted.</div>
+      <div style="overflow-x:auto">
+        <table class="users-table" id="users-table">
+          <thead>
+            <tr>
+              <th>#</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+      <div class="add-user-form">
+        <h3>Add New User</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="new-username" placeholder="username">
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="text" id="new-email" placeholder="user@example.com">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="new-password" placeholder="temporary password">
+          </div>
+          <div class="form-group">
+            <label>Role</label>
+            <select id="new-role">
+              <option value="recruiter">Recruiter</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px">
+          <button class="btn-sm blue" onclick="createUser()">Add User</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error log panel -->
+    <div class="admin-panel" id="admin-panel-errors">
+      <div class="err-log-header">
+        <div>
+          <div class="admin-section-title">Upload Error Log</div>
+          <div class="admin-section-sub">Errors that occurred when users tried to upload documents. Most recent first.</div>
+        </div>
+        <div id="err-count-pill" class="err-count-pill" style="display:none"></div>
+        <button class="btn-sm outline" onclick="loadErrors()" style="margin-left:auto">↻ Refresh</button>
+      </div>
+      <div id="err-log-content">
+        <div class="err-log-empty"><div class="err-empty-icon">⏳</div>Loading errors…</div>
+      </div>
+    </div>
+  </main>
+</div>
+
 <!-- ── Setup screen ────────────────────────────────────────────── -->
-<div class="screen active" id="screen-setup">
+<div class="screen" id="screen-setup">
   <main>
     <div class="setup-grid">
 
@@ -369,9 +619,9 @@ textarea { min-height: 140px; line-height: 1.5; }
           </label>
         </div>
         <div id="jd-upload-status" style="font-size:12px;color:var(--grey);margin-bottom:6px;min-height:16px"></div>
-        <textarea id="jd-input" placeholder="Paste the job description here, or upload a file above…" rows="8"></textarea>
+        <textarea id="jd-input" placeholder="Paste the job description here, or upload a file above…" rows="8" oninput="onJdChange()"></textarea>
         <div style="margin-top:12px">
-          <label>Role Title (optional)</label>
+          <label>Role Title <span style="font-weight:400;color:var(--grey)">(optional — used to apply past learnings)</span></label>
           <input type="text" id="role-title" placeholder="e.g. Programme Manager – Skilling">
         </div>
       </div>
@@ -379,17 +629,18 @@ textarea { min-height: 140px; line-height: 1.5; }
       <!-- Competencies card -->
       <div class="card">
         <h2>Skill Competencies</h2>
-        <div class="card-sub">5 competencies to score each CV on. Auto-detected from JD or add manually.</div>
+        <div class="card-sub">Up to 8 competencies. Auto-detect from JD, then add your own. NGO experience is applied universally.</div>
         <div class="chips" id="comp-chips"></div>
-        <div class="chip-input-row" id="comp-add-row" style="display:none">
-          <input type="text" id="comp-input" placeholder="Add competency…" maxlength="60"
+        <div class="chip-input-row" id="comp-add-row">
+          <input type="text" id="comp-input" placeholder="Add a competency…" maxlength="60"
             onkeydown="if(event.key==='Enter'){addCompetency();event.preventDefault()}">
-          <button class="btn-sm blue" onclick="addCompetency()">Add</button>
+          <button class="btn-sm blue" id="comp-add-btn" onclick="addCompetency()">Add</button>
         </div>
-        <button class="btn-sm blue detect-btn" id="detect-btn" onclick="detectCompetencies()">
+        <div class="comp-cap-note" id="comp-cap-note">Maximum 8 competencies reached.</div>
+        <button class="btn-sm outline detect-btn" id="detect-btn" onclick="detectCompetencies()">
           ✨ Auto-detect from JD
         </button>
-        <div class="detect-note" id="detect-note">Needs a job description to detect competencies.</div>
+        <div class="detect-note" id="detect-note">Competencies are auto-detected from your JD, or add manually above.</div>
       </div>
 
       <!-- Upload card -->
@@ -410,12 +661,13 @@ textarea { min-height: 140px; line-height: 1.5; }
       <!-- Calibration card -->
       <div class="card">
         <h2>Reviewer Calibration <span style="font-weight:400;color:var(--grey);font-size:13px">(optional)</span></h2>
-        <div class="card-sub">Add past reviewer notes to calibrate Claude's scoring to your standards.</div>
+        <div class="card-sub">Notes are saved per JD. Upload the same JD again to reload these notes.</div>
         <div class="calib-list" id="calib-list"></div>
         <div class="calib-add-row">
           <textarea id="calib-input" placeholder="e.g. We value field experience over qualifications…" rows="2"></textarea>
           <button class="btn-sm blue" style="align-self:flex-end" onclick="addCalib()">Add</button>
         </div>
+        <div id="calib-jd-status" style="font-size:11px;color:var(--grey);margin-top:8px"></div>
       </div>
 
       <div class="screen-btn-wrap">
@@ -434,14 +686,16 @@ textarea { min-height: 140px; line-height: 1.5; }
     <div class="results-header">
       <h1 id="results-title">Screening Results</h1>
       <div class="results-stats">
-        <div class="stat-pill blue" id="stat-total"></div>
+        <div class="stat-pill blue"  id="stat-total"></div>
         <div class="stat-pill green" id="stat-sl"></div>
-        <div class="stat-pill red" id="stat-rj"></div>
+        <div class="stat-pill red"   id="stat-rj"></div>
       </div>
     </div>
-    <div class="truncate-banner" id="truncate-banner" style="display:none">
+    <div class="banner orange" id="truncate-banner" style="display:none">
       ⚠ Claude's response was truncated (token limit reached). Some candidates may be missing — try screening in smaller batches.
     </div>
+    <div class="banner green" id="learning-banner" style="display:none"></div>
+    <div id="learn-bar-wrap"></div>
     <div class="filter-bar">
       <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
       <button class="filter-btn" onclick="setFilter('shortlisted', this)">Shortlisted</button>
@@ -459,7 +713,7 @@ textarea { min-height: 140px; line-height: 1.5; }
       <button class="btn-sm outline" onclick="goResults()">← Back to Results</button>
     </div>
     <div class="detail-layout">
-      <div class="detail-main" id="detail-main"></div>
+      <div class="detail-main"    id="detail-main"></div>
       <div class="detail-sidebar" id="detail-sidebar"></div>
     </div>
   </main>
@@ -470,7 +724,7 @@ textarea { min-height: 140px; line-height: 1.5; }
   <div class="progress-box">
     <div class="pb-spinner"></div>
     <h3 id="pb-title">Screening CVs…</h3>
-    <p id="pb-msg">Claude is reading every CV against your job description. This may take a minute.</p>
+    <p  id="pb-msg">Claude is reading every CV against your job description. This may take a minute.</p>
   </div>
 </div>
 
@@ -479,15 +733,20 @@ textarea { min-height: 140px; line-height: 1.5; }
 
 <script>
 // ── State ──────────────────────────────────────────────────────────────────────
+const MAX_COMPETENCIES = 8;
 let state = {
+  user: null,         // { username, role }
   competencies: [],
-  files: [],          // File objects
-  calibration: [],
+  files: [],
+  calibration: [],    // { id, note } objects (from DB) or plain strings
+  calibrationIds: {}, // note text → db id
+  currentJdHash: null,
   roleTitle: "",
   results: [],
   truncated: false,
-  // per-candidate: key → { shortlisted: bool|null, history: [...], scoreFeedback: {...} }
+  pastExamplesUsed: 0,
   decisions: {},
+  learningSaved: false,
   currentFilter: "all",
   detailIdx: null,
 };
@@ -496,9 +755,9 @@ let state = {
 function candKey(r) { return r.filename || r.name || String(r.rank); }
 
 function band(score) {
-  if (score >= 85) return { name: "Strong", bg: "#E3F1FA", fg: "#005A91", ring: "#0075BC" };
+  if (score >= 85) return { name: "Strong",   bg: "#E3F1FA", fg: "#005A91", ring: "#0075BC" };
   if (score >= 65) return { name: "Possible", bg: "#FEF0DC", fg: "#C76A0A", ring: "#F7941D" };
-  return { name: "Weak", bg: "#FDE7DE", fg: "#C23A18", ring: "#F15A29" };
+  return                  { name: "Weak",     bg: "#FDE7DE", fg: "#C23A18", ring: "#F15A29" };
 }
 
 function fmtSize(b) {
@@ -507,7 +766,7 @@ function fmtSize(b) {
   return (b/1048576).toFixed(1) + " MB";
 }
 
-function scoreRingSVG(score, size, b, textClass) {
+function scoreRingSVG(score, size, b) {
   const r = (size - 6) / 2, cx = size/2, cy = size/2;
   const circ = 2 * Math.PI * r;
   const dash = (score / 100) * circ;
@@ -516,16 +775,15 @@ function scoreRingSVG(score, size, b, textClass) {
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${b.ring}" stroke-width="5"
       stroke-dasharray="${dash} ${circ}" stroke-linecap="round"/>
   </svg>
-  <div class="cc-score-text ${textClass}">
+  <div class="cc-score-text">
     <span class="sv" style="color:${b.fg}">${score}</span>
     <span class="sl">/100</span>
   </div>`;
 }
 
-function showToast(msg, dur = 2200) {
+function showToast(msg, dur=2200) {
   const t = document.getElementById("toast");
-  t.textContent = msg;
-  t.classList.add("show");
+  t.textContent = msg; t.classList.add("show");
   setTimeout(() => t.classList.remove("show"), dur);
 }
 
@@ -535,6 +793,13 @@ function showProgress(title, msg) {
   document.getElementById("progress-overlay").classList.add("show");
 }
 function hideProgress() { document.getElementById("progress-overlay").classList.remove("show"); }
+
+// djb2 hash for JD fingerprinting
+function jdHash(text) {
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h) ^ text.charCodeAt(i);
+  return (h >>> 0).toString(16);
+}
 
 // ── Screens ────────────────────────────────────────────────────────────────────
 function showScreen(id) {
@@ -548,6 +813,268 @@ function showScreen(id) {
 }
 function goSetup()   { showScreen("setup"); }
 function goResults() { showScreen("results"); renderResults(); }
+function goAdmin()   { showScreen("admin"); loadUsers(); loadErrors(); }
+
+// ── Auth ───────────────────────────────────────────────────────────────────────
+async function checkAuth() {
+  try {
+    const res = await fetch("/api/auth/me");
+    if (!res.ok) { showScreen("login"); return; }
+    const data = await res.json();
+    state.user = data;
+    updateNavUser();
+    showScreen("setup");
+  } catch {
+    showScreen("login");
+  }
+}
+
+function updateNavUser() {
+  const u = state.user;
+  if (!u) return;
+  document.getElementById("nav-user").style.display = "";
+  document.getElementById("nav-user").textContent = u.username;
+  document.getElementById("nav-logout").style.display = "";
+  if (u.role === "admin") document.getElementById("nav-admin").style.display = "";
+}
+
+async function doLogin() {
+  const username = document.getElementById("login-username").value.trim();
+  const password = document.getElementById("login-password").value;
+  const errEl = document.getElementById("login-err");
+  const btn = document.getElementById("login-btn");
+  errEl.textContent = "";
+  if (!username || !password) { errEl.textContent = "Please enter username and password."; return; }
+  btn.disabled = true; btn.textContent = "Signing in…";
+  try {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({username, password})
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      throw new Error(d.detail || "Login failed");
+    }
+    state.user = await res.json();
+    document.getElementById("login-password").value = "";
+    updateNavUser();
+    showScreen("setup");
+  } catch(e) {
+    errEl.textContent = e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = "Sign in";
+  }
+}
+
+async function doLogout() {
+  await fetch("/api/auth/logout", {method:"POST"});
+  state.user = null;
+  document.getElementById("nav-user").style.display = "none";
+  document.getElementById("nav-logout").style.display = "none";
+  document.getElementById("nav-admin").style.display = "none";
+  showScreen("login");
+}
+
+// ── Admin: Users ───────────────────────────────────────────────────────────────
+function switchAdminTab(tab, btn) {
+  document.querySelectorAll(".admin-tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".admin-panel").forEach(p => p.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById("admin-panel-" + tab).classList.add("active");
+}
+
+async function loadUsers() {
+  try {
+    const res = await fetch("/api/admin/users");
+    if (!res.ok) return;
+    const users = await res.json();
+    const tbody = document.getElementById("users-tbody");
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td>${u.id}</td>
+        <td><strong>${u.username}</strong></td>
+        <td style="color:var(--grey)">${u.email || "—"}</td>
+        <td><span class="role-badge ${u.role}">${u.role}</span></td>
+        <td><span class="status-badge ${u.active ? 'active' : 'inactive'}">${u.active ? "Active" : "Inactive"}</span></td>
+        <td style="color:var(--grey);font-size:12px">${u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
+        <td>
+          ${u.username !== "admin" ? `
+            <button class="btn-sm outline" style="font-size:11px;padding:4px 10px;margin-right:4px"
+              onclick="toggleActive(${u.id}, ${!u.active})">${u.active ? "Deactivate" : "Activate"}</button>
+            <button class="btn-sm outline" style="font-size:11px;padding:4px 10px;color:var(--danger-red);border-color:var(--danger-red)"
+              onclick="deleteUser(${u.id}, '${u.username}')">Delete</button>
+          ` : '<span style="font-size:11px;color:var(--grey)">Protected</span>'}
+        </td>
+      </tr>
+    `).join("");
+  } catch(e) {
+    showToast("Failed to load users");
+  }
+}
+
+async function toggleActive(uid, active) {
+  await fetch(`/api/admin/users/${uid}`, {
+    method:"PATCH", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({active})
+  });
+  loadUsers();
+}
+
+async function deleteUser(uid, username) {
+  if (!confirm(`Delete user "${username}"? This cannot be undone.`)) return;
+  await fetch(`/api/admin/users/${uid}`, {method:"DELETE"});
+  showToast("User deleted");
+  loadUsers();
+}
+
+async function createUser() {
+  const username = document.getElementById("new-username").value.trim();
+  const email    = document.getElementById("new-email").value.trim();
+  const password = document.getElementById("new-password").value;
+  const role     = document.getElementById("new-role").value;
+  if (!username || !password) { showToast("Username and password are required"); return; }
+  try {
+    const res = await fetch("/api/admin/users", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({username, email, password, role})
+    });
+    if (!res.ok) { const d=await res.json(); throw new Error(d.detail); }
+    document.getElementById("new-username").value = "";
+    document.getElementById("new-email").value = "";
+    document.getElementById("new-password").value = "";
+    showToast("User created");
+    loadUsers();
+  } catch(e) {
+    showToast("Error: " + e.message, 4000);
+  }
+}
+
+// ── Admin: Error log ───────────────────────────────────────────────────────────
+async function loadErrors() {
+  const content = document.getElementById("err-log-content");
+  try {
+    const res = await fetch("/api/admin/errors");
+    if (!res.ok) { content.innerHTML = '<div class="err-log-empty"><div class="err-empty-icon">⚠️</div>Could not load error log.</div>'; return; }
+    const errors = await res.json();
+    const pill = document.getElementById("err-count-pill");
+    const pending = errors.filter(e => e.status === "needs-action").length;
+    if (pending > 0) {
+      pill.textContent = pending + " needs action";
+      pill.style.display = "";
+    } else {
+      pill.style.display = "none";
+    }
+    if (!errors.length) {
+      content.innerHTML = '<div class="err-log-empty"><div class="err-empty-icon">✅</div><strong>No upload errors</strong><p style="margin-top:6px">All document uploads have been successful. Errors will appear here if users encounter problems.</p></div>';
+      return;
+    }
+    content.innerHTML = `<div class="err-entries">${errors.map(e => renderErrorEntry(e)).join("")}</div>`;
+  } catch(err) {
+    content.innerHTML = '<div class="err-log-empty"><div class="err-empty-icon">⚠️</div>Failed to connect to error log.</div>';
+  }
+}
+
+function renderErrorEntry(e) {
+  const ts = e.timestamp ? new Date(e.timestamp).toLocaleString() : "Unknown time";
+  const isResolved = e.status === "resolved";
+  const icon = e.file_type === "pdf" ? "📄" : e.file_type === "docx" || e.file_type === "doc" ? "📝" : "📁";
+  return `<div class="err-entry" id="err-entry-${e.id}">
+    <div class="err-entry-header">
+      <div class="err-entry-icon">${icon}</div>
+      <div class="err-entry-meta">
+        <div class="err-entry-filename">${e.filename || "Unknown file"}</div>
+        <div class="err-entry-detail">
+          <span>🕐 ${ts}</span>
+          ${e.role_title ? `<span>📋 ${e.role_title}</span>` : ""}
+          ${e.uploaded_by ? `<span>👤 ${e.uploaded_by}</span>` : ""}
+          ${e.file_type ? `<span>📎 .${e.file_type.toUpperCase()}</span>` : ""}
+        </div>
+      </div>
+      <span class="err-status-badge ${e.status || 'needs-action'}">${isResolved ? "Resolved" : "Needs Action"}</span>
+    </div>
+    <div class="err-body">
+      <div class="err-what-label">What happened</div>
+      <div class="err-what-text">${e.error_plain || "An unknown error occurred."}</div>
+      <div class="err-fix-label">💡 How to fix it</div>
+      <div class="err-fix-text">${e.fix_suggestion || "Please try uploading a different version of the file."}</div>
+    </div>
+    <div class="err-entry-actions">
+      ${!isResolved ? `<button class="err-resolve-btn" onclick="resolveError(${e.id}, this)">Mark as Resolved</button>` : `<button class="err-resolve-btn resolved" disabled>✓ Resolved</button>`}
+    </div>
+  </div>`;
+}
+
+async function resolveError(id, btn) {
+  btn.disabled = true; btn.textContent = "Saving…";
+  try {
+    await fetch(`/api/admin/errors/${id}`, {
+      method:"PATCH", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({status:"resolved"})
+    });
+    loadErrors();
+  } catch {
+    btn.disabled = false; btn.textContent = "Mark as Resolved";
+  }
+}
+
+// ── Setup: JD ─────────────────────────────────────────────────────────────────
+let jdDebounceTimer = null;
+function onJdChange() {
+  clearTimeout(jdDebounceTimer);
+  jdDebounceTimer = setTimeout(() => {
+    const jd = document.getElementById("jd-input").value.trim();
+    if (!jd) { state.currentJdHash = null; return; }
+    const h = jdHash(jd);
+    if (h !== state.currentJdHash) {
+      state.currentJdHash = h;
+      loadCalibration(h);
+    }
+  }, 600);
+}
+
+async function loadCalibration(hash) {
+  if (!hash) return;
+  try {
+    const res = await fetch(`/api/calibration?jd_hash=${hash}`);
+    if (!res.ok) return;
+    const notes = await res.json();
+    state.calibration = notes;
+    state.calibrationIds = {};
+    for (const n of notes) state.calibrationIds[n.note] = n.id;
+    renderCalib();
+    const statusEl = document.getElementById("calib-jd-status");
+    if (notes.length > 0) {
+      statusEl.textContent = `✓ Loaded ${notes.length} saved note${notes.length>1?"s":""} for this JD.`;
+      statusEl.style.color = "var(--green)";
+    } else {
+      statusEl.textContent = "No saved notes for this JD yet.";
+      statusEl.style.color = "var(--grey)";
+    }
+  } catch {}
+}
+
+async function uploadJD(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const status = document.getElementById("jd-upload-status");
+  status.textContent = "⏳ Reading " + file.name + "…";
+  status.style.color = "var(--grey)";
+  e.target.value = "";
+  try {
+    const fd = new FormData(); fd.append("file", file);
+    const res = await fetch("/api/parse-jd", {method:"POST", body:fd});
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    const data = await res.json();
+    document.getElementById("jd-input").value = data.text;
+    status.textContent = "✓ Loaded: " + file.name;
+    status.style.color = "var(--green)";
+    onJdChange();
+  } catch(err) {
+    status.textContent = "❌ " + err.message;
+    status.style.color = "var(--danger-red)";
+  }
+}
 
 // ── Setup: Competencies ────────────────────────────────────────────────────────
 function renderChips() {
@@ -555,14 +1082,15 @@ function renderChips() {
   el.innerHTML = state.competencies.map((c, i) =>
     `<div class="chip">${c}<button class="chip-del" onclick="removeComp(${i})">×</button></div>`
   ).join("");
-  const addRow = document.getElementById("comp-add-row");
-  addRow.style.display = state.competencies.length < 5 ? "flex" : "none";
+  const atCap = state.competencies.length >= MAX_COMPETENCIES;
+  document.getElementById("comp-add-btn").disabled = atCap;
+  document.getElementById("comp-cap-note").style.display = atCap ? "" : "none";
 }
 
 function addCompetency() {
   const inp = document.getElementById("comp-input");
   const v = inp.value.trim();
-  if (!v || state.competencies.length >= 5) return;
+  if (!v || state.competencies.length >= MAX_COMPETENCIES) return;
   if (!state.competencies.includes(v)) state.competencies.push(v);
   inp.value = "";
   renderChips();
@@ -573,26 +1101,6 @@ function removeComp(i) {
   renderChips();
 }
 
-async function uploadJD(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const status = document.getElementById("jd-upload-status");
-  status.textContent = "⏳ Reading " + file.name + "…";
-  e.target.value = "";
-  try {
-    const fd = new FormData(); fd.append("file", file);
-    const res = await fetch("/api/parse-jd", { method: "POST", body: fd });
-    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
-    const data = await res.json();
-    document.getElementById("jd-input").value = data.text;
-    status.textContent = "✓ Loaded: " + file.name;
-    status.style.color = "var(--green)";
-  } catch(e) {
-    status.textContent = "❌ " + e.message;
-    status.style.color = "var(--danger-red)";
-  }
-}
-
 async function detectCompetencies() {
   const jd = document.getElementById("jd-input").value.trim();
   if (!jd) { document.getElementById("detect-note").textContent = "Please enter a job description first."; return; }
@@ -601,12 +1109,19 @@ async function detectCompetencies() {
   document.getElementById("detect-note").textContent = "";
   try {
     const fd = new FormData(); fd.append("jd", jd);
-    const res = await fetch("/api/detect-competencies", { method: "POST", body: fd });
+    const res = await fetch("/api/detect-competencies", {method:"POST", body:fd});
     if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
     const data = await res.json();
-    state.competencies = data.competencies.slice(0, 5);
+    // Merge detected into existing (don't replace)
+    const remaining = MAX_COMPETENCIES - state.competencies.length;
+    let added = 0;
+    for (const c of data.competencies) {
+      if (state.competencies.length >= MAX_COMPETENCIES) break;
+      if (!state.competencies.includes(c)) { state.competencies.push(c); added++; }
+    }
     renderChips();
-    document.getElementById("detect-note").textContent = "✓ Competencies detected. You can edit them.";
+    document.getElementById("detect-note").textContent =
+      added > 0 ? `✓ Added ${added} competency${added>1?"ies":"y"} from JD.` : "No new competencies to add.";
   } catch(e) {
     document.getElementById("detect-note").textContent = "❌ " + e.message;
   } finally {
@@ -624,8 +1139,7 @@ function addFiles(newFiles) {
   const err = document.getElementById("file-err");
   err.textContent = "";
   const allowed = [".pdf",".doc",".docx"];
-  const valid = [];
-  const invalid = [];
+  const valid = [], invalid = [];
   for (const f of newFiles) {
     const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
     if (!allowed.includes(ext)) { invalid.push(f.name); continue; }
@@ -653,34 +1167,53 @@ function renderFileList() {
   ).join("");
 }
 
-function removeFile(i) {
-  state.files.splice(i, 1);
-  renderFileList();
-}
+function removeFile(i) { state.files.splice(i, 1); renderFileList(); }
 
 // ── Setup: Calibration ─────────────────────────────────────────────────────────
-function addCalib() {
+async function addCalib() {
   const inp = document.getElementById("calib-input");
   const v = inp.value.trim();
   if (!v) return;
-  state.calibration.push(v);
-  inp.value = "";
-  renderCalib();
+  if (!state.currentJdHash) { showToast("Please enter a job description first to save calibration notes."); return; }
+  try {
+    const res = await fetch("/api/calibration", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({note: v, jd_hash: state.currentJdHash})
+    });
+    if (res.ok) {
+      const data = await res.json();
+      state.calibration.push({id: data.id, note: v});
+      state.calibrationIds[v] = data.id;
+    } else {
+      state.calibration.push({id: null, note: v});
+    }
+    inp.value = "";
+    renderCalib();
+  } catch {
+    state.calibration.push({id: null, note: v});
+    inp.value = "";
+    renderCalib();
+  }
 }
 
-function removeCalib(i) {
+async function removeCalib(i) {
+  const item = state.calibration[i];
+  if (item && item.id) {
+    try { await fetch(`/api/calibration/${item.id}`, {method:"DELETE"}); } catch {}
+  }
   state.calibration.splice(i, 1);
   renderCalib();
 }
 
 function renderCalib() {
   const el = document.getElementById("calib-list");
-  el.innerHTML = state.calibration.map((c, i) =>
-    `<div class="calib-item">
-      <span class="ci-text">${c}</span>
+  el.innerHTML = state.calibration.map((c, i) => {
+    const text = typeof c === "string" ? c : c.note;
+    return `<div class="calib-item">
+      <span class="ci-text">${text}</span>
       <button class="ci-del" onclick="removeCalib(${i})">×</button>
-    </div>`
-  ).join("");
+    </div>`;
+  }).join("");
 }
 
 // ── Screen CVs ─────────────────────────────────────────────────────────────────
@@ -691,18 +1224,20 @@ async function runScreen() {
 
   state.roleTitle = document.getElementById("role-title").value.trim();
   state.decisions = {};
+  state.learningSaved = false;
 
   showProgress("Screening CVs…",
-    `Claude is reading ${state.files.length} CV${state.files.length>1?"s":""} against your job description. This may take a minute.`);
+    `Claude is reading ${state.files.length} CV${state.files.length>1?"s":""} against your job description. This may take up to a minute.`);
 
   try {
     const fd = new FormData();
     fd.append("jd", jd);
     fd.append("competencies", state.competencies.join("\n"));
-    fd.append("calibration", JSON.stringify(state.calibration));
+    fd.append("calibration", JSON.stringify(state.calibration.map(c => typeof c === "string" ? c : c.note)));
+    fd.append("role_title", state.roleTitle);
     for (const f of state.files) fd.append("files", f);
 
-    const res = await fetch("/api/screen", { method: "POST", body: fd });
+    const res = await fetch("/api/screen", {method:"POST", body:fd});
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.detail || res.statusText);
@@ -710,11 +1245,11 @@ async function runScreen() {
     const data = await res.json();
     state.results = data.results || [];
     state.truncated = data.truncated || false;
+    state.pastExamplesUsed = data.past_examples_used || 0;
 
-    // Pre-populate decisions from Claude's initial shortlisted flag
     for (const r of state.results) {
       const k = candKey(r);
-      state.decisions[k] = { shortlisted: r.shortlisted === true ? true : r.shortlisted === false ? null : null };
+      state.decisions[k] = { shortlisted: r.shortlisted === true ? true : null };
     }
 
     hideProgress();
@@ -734,10 +1269,7 @@ function setFilter(f, btn) {
   renderResults();
 }
 
-function getDecision(r) {
-  const k = candKey(r);
-  return state.decisions[k]?.shortlisted;   // true | false | null/undefined
-}
+function getDecision(r) { return state.decisions[candKey(r)]?.shortlisted; }
 
 function renderResults() {
   const title = document.getElementById("results-title");
@@ -751,13 +1283,40 @@ function renderResults() {
 
   document.getElementById("truncate-banner").style.display = state.truncated ? "" : "none";
 
+  const lb = document.getElementById("learning-banner");
+  if (state.pastExamplesUsed > 0) {
+    lb.style.display = "";
+    lb.textContent = `🧠 Scoring calibrated using ${state.pastExamplesUsed} past hiring decision${state.pastExamplesUsed>1?"s":""} for this role.`;
+  } else {
+    lb.style.display = "none";
+  }
+
+  // Save learning bar
+  const decided = state.results.filter(r => getDecision(r) !== null && getDecision(r) !== undefined).length;
+  const learnWrap = document.getElementById("learn-bar-wrap");
+  if (decided > 0 && state.roleTitle && !state.learningSaved) {
+    learnWrap.innerHTML = `<div class="learn-bar">
+      <div class="lb-text">
+        <strong>Save decisions as learning examples</strong>
+        Your shortlist/reject decisions on ${decided} candidate${decided>1?"s":""} can help Claude improve future screenings for "<em>${state.roleTitle}</em>".
+      </div>
+      <button onclick="saveLearningExamples()">Save & Learn</button>
+    </div>`;
+  } else if (state.learningSaved) {
+    learnWrap.innerHTML = `<div class="learn-bar">
+      <div class="lb-text"><strong>✓ Learning saved</strong> Claude will use these decisions in future screenings for "${state.roleTitle}".</div>
+    </div>`;
+  } else {
+    learnWrap.innerHTML = "";
+  }
+
   let visible = state.results;
   if (state.currentFilter === "shortlisted") visible = state.results.filter(r => getDecision(r) === true);
   else if (state.currentFilter === "rejected") visible = state.results.filter(r => getDecision(r) === false);
   else if (state.currentFilter === "pending")  visible = state.results.filter(r => getDecision(r) == null);
 
   const grid = document.getElementById("candidate-grid");
-  grid.innerHTML = visible.map((r, _) => {
+  grid.innerHTML = visible.map(r => {
     const realIdx = state.results.indexOf(r);
     const sc = r.overall || 0;
     const b = band(sc);
@@ -765,22 +1324,17 @@ function renderResults() {
     const cardClass = dec === true ? "shortlisted" : dec === false ? "rejected" : "";
     const slClass = dec === true ? "sl-active" : "";
     const rjClass = dec === false ? "rj-active" : "";
-    const name = r.name || r.filename || "—";
-    const role = r.role || "—";
-    const yrs  = r.years != null ? r.years + " yrs" : "";
-    const loc  = r.location || "";
-
     return `<div class="cand-card ${cardClass}" onclick="openDetail(${realIdx})">
       <div class="cc-top">
         <div class="cc-ring" style="width:58px;height:58px;position:relative">
-          ${scoreRingSVG(sc, 58, b, "")}
+          ${scoreRingSVG(sc, 58, b)}
         </div>
         <div class="cc-info">
-          <div class="cc-name">${name}</div>
-          <div class="cc-role">${role}</div>
+          <div class="cc-name">${r.name || r.filename || "—"}</div>
+          <div class="cc-role">${r.role || "—"}</div>
           <div class="cc-meta">
-            ${yrs ? `<span>⏱ ${yrs}</span>` : ""}
-            ${loc ? `<span>📍 ${loc}</span>` : ""}
+            ${r.years != null ? `<span>⏱ ${r.years} yrs</span>` : ""}
+            ${r.location ? `<span>📍 ${r.location}</span>` : ""}
           </div>
         </div>
       </div>
@@ -802,46 +1356,57 @@ function toggleDecision(idx, action) {
   const k = candKey(r);
   if (!state.decisions[k]) state.decisions[k] = {};
   const cur = state.decisions[k].shortlisted;
-  if (action === "shortlist") {
-    state.decisions[k].shortlisted = cur === true ? null : true;
-  } else {
-    state.decisions[k].shortlisted = cur === false ? null : false;
-  }
-  const ts = new Date().toISOString();
-  const hist = state.decisions[k].history = state.decisions[k].history || [];
-  hist.push({ name: r.name || r.filename, action, ts });
-
+  state.decisions[k].shortlisted = action === "shortlist" ? (cur === true ? null : true) : (cur === false ? null : false);
   renderResults();
   if (state.detailIdx === idx) renderDetail(idx);
 }
 
-// ── Detail ─────────────────────────────────────────────────────────────────────
-function openDetail(idx) {
-  state.detailIdx = idx;
-  renderDetail(idx);
-  showScreen("detail");
+async function saveLearningExamples() {
+  if (!state.roleTitle) { showToast("Please set a role title to save learning examples."); return; }
+  const examples = state.results
+    .filter(r => getDecision(r) !== null && getDecision(r) !== undefined)
+    .map(r => ({
+      name: r.name || r.filename,
+      ai_score: r.overall,
+      final_decision: getDecision(r) ? "shortlisted" : "rejected",
+      summary: r.summary || "",
+      strengths: (r.strengths || []).join("; "),
+      gaps: (r.gaps || []).join("; "),
+      recruiter_note: "",
+    }));
+  if (!examples.length) return;
+  try {
+    await fetch("/api/feedback", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({role_title: state.roleTitle, examples})
+    });
+    state.learningSaved = true;
+    renderResults();
+    showToast("✓ Learning examples saved");
+  } catch {
+    showToast("Failed to save learning examples");
+  }
 }
+
+// ── Detail ─────────────────────────────────────────────────────────────────────
+function openDetail(idx) { state.detailIdx = idx; renderDetail(idx); showScreen("detail"); }
 
 function renderDetail(idx) {
   const r = state.results[idx];
   if (!r) return;
   const sc = r.overall || 0;
-  const b  = band(sc);
+  const b = band(sc);
   const dec = getDecision(r);
-  const k = candKey(r);
-
-  // Main column
-  const name = r.name || r.filename || "—";
   const comps = r.competency_labels || [];
   const scores = r.scores || [];
 
-  const mainHTML = `
+  document.getElementById("detail-main").innerHTML = `
     <div class="card detail-hero">
       <div class="dh-ring" style="width:80px;height:80px;position:relative">
-        ${scoreRingSVG(sc, 80, b, "")}
+        ${scoreRingSVG(sc, 80, b)}
       </div>
       <div class="dh-info">
-        <h1>${name}</h1>
+        <h1>${r.name || r.filename || "—"}</h1>
         <div class="dh-role">${r.role || "—"} · Rank #${r.rank || "—"}</div>
         <div class="dh-meta">
           ${r.years != null ? `<div class="meta-pill">⏱ ${r.years} yrs exp</div>` : ""}
@@ -851,69 +1416,51 @@ function renderDetail(idx) {
         </div>
       </div>
     </div>
-
     <div class="card">
       <div class="section-title">Summary</div>
       <div class="summary-text">${r.summary || "—"}</div>
     </div>
-
     <div class="card">
       <div class="section-title">Strengths &amp; Gaps</div>
       <div class="sg-grid">
-        <div class="sg-box strengths">
-          <h4>✓ Strengths</h4>
+        <div class="sg-box strengths"><h4>✓ Strengths</h4>
           <ul class="sg-list">${(r.strengths||[]).map(s=>`<li>${s}</li>`).join("")||"<li>—</li>"}</ul>
         </div>
-        <div class="sg-box gaps">
-          <h4>✗ Gaps</h4>
+        <div class="sg-box gaps"><h4>✗ Gaps</h4>
           <ul class="sg-list">${(r.gaps||[]).map(g=>`<li>${g}</li>`).join("")||"<li>—</li>"}</ul>
         </div>
       </div>
     </div>
-
     ${comps.length ? `<div class="card">
       <div class="section-title">Competency Scores</div>
       <div class="comp-bars">
-        ${comps.map((c, i) => {
-          const s = scores[i] || 0;
-          const bc = band(s);
-          return `<div class="comp-row">
-            <div class="comp-label-row">
-              <span class="comp-label">${c}</span>
-              <span class="comp-val" style="color:${bc.fg}">${s}/100</span>
-            </div>
-            <div class="bar-track">
-              <div class="bar-fill" style="width:${s}%;background:${bc.ring}"></div>
-            </div>
-          </div>`;
-        }).join("")}
+        ${comps.map((c,i)=>{const s=scores[i]||0,bc=band(s);return`<div class="comp-row">
+          <div class="comp-label-row"><span class="comp-label">${c}</span><span class="comp-val" style="color:${bc.fg}">${s}/100</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${s}%;background:${bc.ring}"></div></div>
+        </div>`;}).join("")}
       </div>
     </div>` : ""}
-
     ${(r.evidence||[]).length ? `<div class="card">
       <div class="section-title">Evidence from CV</div>
       <div class="evidence-list">
         ${(r.evidence||[]).map(ev=>`<div class="ev-item">
           <div class="ev-label">${ev.label||""}</div>
-          <div class="ev-text">"${ev.text||""}"</div>
+          <div class="ev-text">${ev.text||""}</div>
         </div>`).join("")}
       </div>
     </div>` : ""}
-
     ${r.flag ? `<div class="flag-box">
-      <div class="flag-label">⚑ Flag to verify</div>
+      <div class="flag-label">⚑ Flag for verification</div>
       <div class="flag-text">${r.flag}</div>
     </div>` : ""}
   `;
 
-  // Sidebar
   const slClass = dec === true ? "sl-active" : "";
   const rjClass = dec === false ? "rj-active" : "";
-
-  const sideHTML = `
+  document.getElementById("detail-sidebar").innerHTML = `
     <div class="score-box">
       <div class="score-big" style="color:${b.fg}">${sc}</div>
-      <div class="score-label">Overall match score</div>
+      <div class="score-label">Overall Match Score</div>
       <div class="band-badge" style="background:${b.bg};color:${b.fg}">${b.name}</div>
       <div class="action-btns">
         <button class="action-btn ${slClass}" onclick="toggleDecision(${idx},'shortlist')">
@@ -924,96 +1471,53 @@ function renderDetail(idx) {
         </button>
       </div>
     </div>
-
-    ${(r.email || r.phone) ? `<div class="contact-box">
-      <div class="section-title" style="margin-bottom:8px">Contact</div>
-      ${r.email ? `<div class="contact-row"><span class="cr-label">Email</span><span class="cr-val">${r.email}</span></div>` : ""}
-      ${r.phone ? `<div class="contact-row"><span class="cr-label">Phone</span><span class="cr-val">${r.phone}</span></div>` : ""}
-    </div>` : ""}
-
-    <div class="calib-feedback">
-      <div class="section-title" style="margin-bottom:8px">Reviewer Note</div>
-      <textarea id="calib-note" placeholder="Add a calibration note for future screenings…"
-        onblur="saveCalibNote(${idx})">${state.decisions[k]?.note||""}</textarea>
-      <button class="btn-sm blue" style="width:100%" onclick="saveCalibNote(${idx});showToast('Note saved')">Save Note</button>
+    <div class="contact-box">
+      <div class="contact-row"><span class="cr-label">EMAIL</span><span class="cr-val">${r.email||"—"}</span></div>
+      <div class="contact-row"><span class="cr-label">PHONE</span><span class="cr-val">${r.phone||"—"}</span></div>
+      <div class="contact-row"><span class="cr-label">LOC</span><span class="cr-val">${r.location||"—"}</span></div>
+      <div class="contact-row"><span class="cr-label">EXP</span><span class="cr-val">${r.years!=null?r.years+" yrs":"—"}</span></div>
+      <div class="contact-row"><span class="cr-label">FILE</span><span class="cr-val">${r.filename||"—"}</span></div>
     </div>
   `;
-
-  document.getElementById("detail-main").innerHTML = mainHTML;
-  document.getElementById("detail-sidebar").innerHTML = sideHTML;
-}
-
-function saveCalibNote(idx) {
-  const r = state.results[idx];
-  const k = candKey(r);
-  const v = (document.getElementById("calib-note")||{}).value||"";
-  if (!state.decisions[k]) state.decisions[k] = {};
-  state.decisions[k].note = v;
-  if (v.trim() && !state.calibration.includes(v.trim())) {
-    // Don't auto-add notes to calibration — just store them
-  }
 }
 
 // ── Export ─────────────────────────────────────────────────────────────────────
-function buildExportBody() {
-  // Merge reviewer decisions back into results for export
-  const merged = state.results.map(r => {
-    const k = candKey(r);
-    const dec = state.decisions[k];
-    return { ...r, shortlisted: dec?.shortlisted ?? r.shortlisted };
-  });
-  const history = {};
-  for (const [k, v] of Object.entries(state.decisions)) {
-    if (v.history?.length) history[k] = v.history;
-  }
-  return { results: merged, role_title: state.roleTitle, history, score_feedback: {} };
-}
-
 async function exportPDF() {
-  showProgress("Generating PDF…", "Building your screening report.");
+  showProgress("Generating PDF…", "Building your screening report…");
   try {
     const res = await fetch("/api/export/pdf", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildExportBody()),
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({results: state.results, role_title: state.roleTitle})
     });
-    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    if (!res.ok) throw new Error("Export failed");
     const blob = await res.blob();
-    download(blob, `CV_Screening_${today()}.pdf`);
-  } catch(e) { showToast("❌ " + e.message, 4000); }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url;
+    a.download = `CV_Screening_${new Date().toISOString().slice(0,10)}.pdf`;
+    a.click(); URL.revokeObjectURL(url);
+  } catch(e) { showToast("❌ " + e.message); }
   finally { hideProgress(); }
 }
 
 async function exportExcel() {
-  showProgress("Generating Excel…", "Building your screening spreadsheet.");
+  showProgress("Generating Excel…", "Building your screening report…");
   try {
     const res = await fetch("/api/export/excel", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildExportBody()),
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({results: state.results, role_title: state.roleTitle})
     });
-    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    if (!res.ok) throw new Error("Export failed");
     const blob = await res.blob();
-    download(blob, `CV_Screening_${today()}.xlsx`);
-  } catch(e) { showToast("❌ " + e.message, 4000); }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url;
+    a.download = `CV_Screening_${new Date().toISOString().slice(0,10)}.xlsx`;
+    a.click(); URL.revokeObjectURL(url);
+  } catch(e) { showToast("❌ " + e.message); }
   finally { hideProgress(); }
 }
 
-function download(blob, name) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = name; document.body.appendChild(a);
-  a.click(); a.remove(); URL.revokeObjectURL(url);
-}
-
-function today() {
-  return new Date().toISOString().slice(0,10);
-}
-
 // ── Init ───────────────────────────────────────────────────────────────────────
-renderChips();
-renderCalib();
-renderFileList();
+checkAuth();
 </script>
 </body>
 </html>
