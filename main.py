@@ -374,65 +374,113 @@ def generate_excel(results: list, role_title: str = "", history: dict = None, sc
 
     score_feedback = score_feedback or {}
     wb = Workbook()
-    ws = wb.active
-    ws.title = "Screening Results"
 
     BLUE  = "FF0075BC"; GREEN = "FF1B6E2E"; RED = "FFC62828"
-    ORG = "FFF7941D"; LGREY = "FFF4F7FA"; WHITE = "FFFFFFFF"; DARK = "FF1A1A2E"
+    AMBER = "FFE65100"; LGREY = "FFF4F7FA"; WHITE = "FFFFFFFF"; DARK = "FF1A1A2E"
+    COMP_HDR = "FF1565C0"
 
     hdr_font  = Font(name="Calibri", bold=True, color=WHITE, size=11)
     hdr_fill  = PatternFill("solid", fgColor=DARK)
-    hdr_align = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    comp_fill = PatternFill("solid", fgColor=COMP_HDR)
+    hdr_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
     thin      = Side(style="thin", color="FFE4E9EF")
     border    = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    title_row = [f"CV Screening Report — {role_title}" if role_title else "CV Screening Report",
-                 "", "", "", "", f"Generated: {datetime.now().strftime('%d %B %Y')}"]
-    ws.append(title_row)
+    eligible = [r for r in results if not r.get("filtered")]
+    filtered = [r for r in results if r.get("filtered")]
+
+    # Derive competency labels from first eligible candidate that has them
+    comp_labels = []
+    for r in eligible:
+        lbs = r.get("competency_labels", [])
+        if lbs:
+            comp_labels = lbs
+            break
+
+    def comp_color(sc):
+        if sc >= 70: return GREEN
+        if sc >= 40: return AMBER
+        return RED
+
+    def band_color(sc):
+        if sc >= 65: return GREEN
+        if sc >= 30: return AMBER
+        return RED
+
+    # ── Sheet 1: Screening Results ──────────────────────────────────────────────
+    ws = wb.active
+    ws.title = "Screening Results"
+
+    title_text = f"CV Screening Report — {role_title}" if role_title else "CV Screening Report"
+    ws.append([title_text, "", "", "", "", "", f"Generated: {datetime.now().strftime('%d %B %Y')}"])
     ws["A1"].font = Font(name="Calibri", bold=True, size=14, color=BLUE)
-    ws.merge_cells("A1:E1")
-    ws["F1"].font = Font(name="Calibri", size=10, color="FF5E6675")
-    ws["F1"].alignment = Alignment(horizontal="right")
+    ws.merge_cells("A1:F1")
+    ws["G1"].font = Font(name="Calibri", size=10, color="FF5E6675")
+    ws["G1"].alignment = Alignment(horizontal="right")
+    ws.append([f"Eligible for review: {len(eligible)}   |   Auto-filtered (below 30%): {len(filtered)}"])
+    ws["A2"].font = Font(name="Calibri", size=10, color="FF5E6675")
     ws.append([])
 
-    columns = ["Rank","Name","Role","Years Exp","Location","Score (Reviewed)","Band","Status",
-               "Review Status","Strengths","Gaps","Summary","Flag","Email","Phone","Filename"]
+    fixed_left  = ["Rank", "Name", "Current Role", "Yrs Exp", "Location",
+                   "Overall Score (/100)", "Band", "Status"]
+    fixed_right = ["Evidence from CV", "Strengths", "Gaps", "Fit Summary",
+                   "Flag / Verify", "Email", "Phone", "Filename"]
+    columns = fixed_left + [f"{lb}\n(/100)" for lb in comp_labels] + fixed_right
+
     ws.append(columns)
+    hdr_row = ws.max_row
     for col_idx, _ in enumerate(columns, 1):
-        cell = ws.cell(row=3, column=col_idx)
-        cell.font = hdr_font; cell.fill = hdr_fill
-        cell.alignment = hdr_align; cell.border = border
+        is_comp = len(fixed_left) < col_idx <= len(fixed_left) + len(comp_labels)
+        cell = ws.cell(row=hdr_row, column=col_idx)
+        cell.font = hdr_font
+        cell.fill = comp_fill if is_comp else hdr_fill
+        cell.alignment = hdr_align
+        cell.border = border
+    ws.row_dimensions[hdr_row].height = 36
 
-    band_colors = {"strong": GREEN, "possible": ORG, "weak": RED}
-
-    for r in results:
-        sc = r.get("overall", 0)
+    for r in eligible + filtered:
+        sc    = r.get("overall", 0)
         bname, _, _, _ = band(sc)
-        sl = r.get("shortlisted")
-        status = "Shortlisted" if sl is True else "Rejected" if sl is False else "Pending"
-        ck = candidate_key(r)
-        score_fb = score_feedback.get(ck, {})
-        reviewed_score = score_fb.get("human_overall", sc) if score_fb else sc
-        review_status  = ("Approved" if score_fb.get("approved") else
-                          f"Calibrated ({sc}→{reviewed_score})") if score_fb else "Not reviewed"
-        row = [r.get("rank",""), r.get("name", r.get("filename","")),
-               r.get("role",""), r.get("years",""), r.get("location",""),
-               reviewed_score, bname.capitalize(), status, review_status,
+        sl    = r.get("shortlisted")
+        is_f  = r.get("filtered", False)
+        status = "Auto-filtered" if is_f else ("Shortlisted" if sl is True else "Rejected" if sl is False else "Pending")
+        scores = r.get("scores", [])
+        evidence_text = "\n".join(
+            f"{ev.get('label','')}: {ev.get('text','')}"
+            for ev in r.get("evidence", []) if ev.get("text")
+        )
+        row_vals = (
+            [r.get("rank",""), r.get("name", r.get("filename","")),
+             r.get("role",""), r.get("years",""), r.get("location",""),
+             sc, bname.capitalize(), status]
+            + [scores[i] if i < len(scores) else "" for i in range(len(comp_labels))]
+            + [evidence_text,
                "; ".join(r.get("strengths",[])), "; ".join(r.get("gaps",[])),
                r.get("summary",""), r.get("flag","") or "",
                r.get("email",""), r.get("phone",""), r.get("filename","")]
-        ws.append(row)
+        )
+        ws.append(row_vals)
         data_row = ws.max_row
+
         for col_idx in range(1, len(columns)+1):
             cell = ws.cell(row=data_row, column=col_idx)
             cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
             cell.border = border
             if data_row % 2 == 0:
                 cell.fill = PatternFill("solid", fgColor=LGREY)
-        band_cell = ws.cell(row=data_row, column=7)
-        fc = band_colors.get(bname, DARK)
-        band_cell.font = Font(name="Calibri", bold=True, color=WHITE, size=10)
-        band_cell.fill = PatternFill("solid", fgColor=fc)
+
+        # Overall score: color-coded
+        sc_cell = ws.cell(row=data_row, column=6)
+        sc_cell.font = Font(name="Calibri", bold=True, color=WHITE, size=11)
+        sc_cell.fill = PatternFill("solid", fgColor=band_color(sc))
+        sc_cell.alignment = Alignment(horizontal="center", vertical="top")
+
+        # Band cell
+        b_cell = ws.cell(row=data_row, column=7)
+        b_cell.font = Font(name="Calibri", bold=True, color=WHITE, size=10)
+        b_cell.fill = PatternFill("solid", fgColor=band_color(sc))
+
+        # Status cell
         st_cell = ws.cell(row=data_row, column=8)
         if sl is True:
             st_cell.font = Font(name="Calibri", bold=True, color=WHITE)
@@ -440,36 +488,87 @@ def generate_excel(results: list, role_title: str = "", history: dict = None, sc
         elif sl is False:
             st_cell.font = Font(name="Calibri", bold=True, color=WHITE)
             st_cell.fill = PatternFill("solid", fgColor=RED)
-        rv_cell = ws.cell(row=data_row, column=9)
-        if score_fb:
-            rv_cell.font = Font(name="Calibri", bold=True,
-                                color=GREEN if score_fb.get("approved") else BLUE, size=10)
+        elif is_f:
+            st_cell.font = Font(name="Calibri", italic=True, color="FF888888")
 
-    col_widths = [6, 22, 22, 10, 16, 14, 10, 12, 18, 40, 30, 50, 35, 24, 16, 24]
-    for i, w in enumerate(col_widths, 1):
+        # Competency score cells: individually color-coded
+        for i in range(len(comp_labels)):
+            col_idx = len(fixed_left) + 1 + i
+            cell = ws.cell(row=data_row, column=col_idx)
+            if isinstance(cell.value, int):
+                cell.font = Font(name="Calibri", bold=True, color=WHITE, size=10)
+                cell.fill = PatternFill("solid", fgColor=comp_color(cell.value))
+                cell.alignment = Alignment(horizontal="center", vertical="top")
+
+    left_widths  = [5, 22, 22, 8, 16, 10, 10, 12]
+    comp_widths  = [14] * len(comp_labels)
+    right_widths = [45, 35, 28, 55, 30, 22, 14, 24]
+    for i, w in enumerate(left_widths + comp_widths + right_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
-    ws.row_dimensions[3].height = 22
-    ws.freeze_panes = "A4"
+    ws.freeze_panes = f"A{hdr_row+1}"
 
+    # ── Sheet 2: Evidence Detail ────────────────────────────────────────────────
+    ws2 = wb.create_sheet("Evidence Detail")
+    ws2.append([title_text, "", "", f"Generated: {datetime.now().strftime('%d %B %Y')}"])
+    ws2["A1"].font = Font(name="Calibri", bold=True, size=13, color=BLUE)
+    ws2.merge_cells("A1:C1")
+    ws2.append(["Verbatim CV evidence supporting each candidate's score — for hiring manager review."])
+    ws2["A2"].font = Font(name="Calibri", size=10, color="FF5E6675")
+    ws2.append([])
+
+    ev_cols = ["Candidate", "Overall Score", "Status", "Evidence Label", "Evidence from CV", "Strengths", "Gaps"]
+    ws2.append(ev_cols)
+    ev_hdr = ws2.max_row
+    for col_idx in range(1, len(ev_cols)+1):
+        cell = ws2.cell(row=ev_hdr, column=col_idx)
+        cell.font = hdr_font; cell.fill = hdr_fill
+        cell.alignment = hdr_align; cell.border = border
+    ws2.row_dimensions[ev_hdr].height = 22
+
+    for r in eligible:
+        sc   = r.get("overall", 0)
+        sl   = r.get("shortlisted")
+        name = r.get("name", r.get("filename",""))
+        status = "Shortlisted" if sl is True else "Rejected" if sl is False else "Pending"
+        evidence  = r.get("evidence", [])
+        strengths = "; ".join(r.get("strengths", []))
+        gaps      = "; ".join(r.get("gaps", []))
+        items = evidence if evidence else [{"label": "Summary", "text": r.get("summary","")}]
+        for i, ev in enumerate(items):
+            ws2.append([
+                name      if i == 0 else "",
+                sc        if i == 0 else "",
+                status    if i == 0 else "",
+                ev.get("label",""),
+                ev.get("text",""),
+                strengths if i == 0 else "",
+                gaps      if i == 0 else "",
+            ])
+            row_idx = ws2.max_row
+            for col_idx in range(1, len(ev_cols)+1):
+                cell = ws2.cell(row=row_idx, column=col_idx)
+                cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                cell.border = border
+
+    for col, w in zip(["A","B","C","D","E","F","G"], [22, 8, 12, 22, 60, 35, 28]):
+        ws2.column_dimensions[col].width = w
+    ws2.freeze_panes = f"A{ev_hdr+1}"
+
+    # ── Sheet 3: Status History ─────────────────────────────────────────────────
     if history:
         wh = wb.create_sheet("Status History")
         wh.append(["Candidate", "Action", "Timestamp"])
         for col_idx in range(1, 4):
             cell = wh.cell(row=1, column=col_idx)
             cell.font = hdr_font; cell.fill = hdr_fill; cell.alignment = hdr_align
-        all_entries = sorted(
-            [e for entries in history.values() for e in entries],
-            key=lambda e: e["ts"], reverse=True
-        )
-        for e in all_entries:
+        for e in sorted([e for v in history.values() for e in v], key=lambda e: e["ts"], reverse=True):
             wh.append([e.get("name",""), e.get("action","").capitalize(), e.get("ts","")])
             row_idx = wh.max_row
             for col_idx in range(1, 4):
                 wh.cell(row=row_idx, column=col_idx).alignment = Alignment(horizontal="left", vertical="center")
                 wh.cell(row=row_idx, column=col_idx).border = border
-        wh.column_dimensions["A"].width = 24
-        wh.column_dimensions["B"].width = 16
-        wh.column_dimensions["C"].width = 22
+        for col, w in zip(["A","B","C"], [24, 16, 22]):
+            wh.column_dimensions[col].width = w
         wh.freeze_panes = "A2"
 
     buf = io.BytesIO()
