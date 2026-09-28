@@ -755,16 +755,18 @@ async def zoho_debug_candidate(
     token = get_zoho_access_token()
     headers = {"Authorization": f"Zoho-oauthtoken {token}", "Accept": "application/json"}
     import requests as _req
-    # Fetch first job opening and try its /Candidates sub-resource
+    # Get a real job opening ID first
     resp = _req.get(f"{recruit_url}/recruit/v2/Job_Openings", headers=headers,
                     params={"per_page": 1, "fields": "id,Posting_Title"}, timeout=20)
-    if not resp.ok or resp.status_code == 204:
-        return {"error": "no job openings found"}
-    job = resp.json().get("data", [{}])[0]
-    job_id = job.get("id")
-    resp2 = _req.get(f"{recruit_url}/recruit/v2/Job_Openings/{job_id}/Candidates",
-                     headers=headers, params={"fields": "id,Full_Name", "per_page": 5}, timeout=20)
-    return {"job": job, "candidates_sub_resource": {"status": resp2.status_code, "body": resp2.json() if resp2.ok else resp2.text[:300]}}
+    job = resp.json().get("data", [{}])[0] if resp.ok else {}
+    job_id = job.get("id", "")
+    results = {"job": job}
+    # Try searching candidates by job opening using different field names
+    for field in ["Current_Job_Opening_Id", "Job_Opening_Id", "Associated_Job_Opening"]:
+        r = _req.get(f"{recruit_url}/recruit/v2/Candidates/search", headers=headers,
+                     params={"criteria": f"({field}:equals:{job_id})", "fields": "id,Full_Name", "per_page": 3}, timeout=20)
+        results[field] = {"status": r.status_code, "body": r.json() if r.ok else r.text[:200]}
+    return results
 
 
 @app.get("/api/zoho/candidate-roles")
