@@ -762,23 +762,29 @@ async def zoho_candidate_roles(
     headers = {"Authorization": f"Zoho-oauthtoken {token}", "Accept": "application/json"}
 
     mapping = {}
-    # Zoho supports up to 100 IDs per search criteria call
     import requests as _req
-    for chunk_start in range(0, len(id_list), 100):
-        chunk = id_list[chunk_start:chunk_start + 100]
-        criteria = f"(id:in:{','.join(chunk)})"
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def fetch_one(cid):
         resp = _req.get(
-            f"{recruit_url}/recruit/v2/Candidates/search",
+            f"{recruit_url}/recruit/v2/Candidates/{cid}",
             headers=headers,
-            params={"criteria": criteria, "fields": "id,Posting_Title", "per_page": 200},
-            timeout=30,
+            params={"fields": "id,Posting_Title"},
+            timeout=20,
         )
-        if resp.status_code == 204:
-            continue
-        if not resp.ok:
-            continue
-        for rec in resp.json().get("data", []):
-            mapping[str(rec.get("id", ""))] = rec.get("Posting_Title") or ""
+        if not resp.ok or resp.status_code == 204:
+            return cid, ""
+        data = resp.json().get("data", [])
+        if data:
+            return cid, data[0].get("Posting_Title") or ""
+        return cid, ""
+
+    with ThreadPoolExecutor(max_workers=10) as ex:
+        futures = {ex.submit(fetch_one, cid): cid for cid in id_list}
+        for fut in as_completed(futures):
+            cid, title = fut.result()
+            if title:
+                mapping[cid] = title
     return mapping
 
 
