@@ -1444,18 +1444,24 @@ async function loadDriveFiles() {
       return;
     }
 
-    // Extract candidate IDs from filenames (first segment before _)
-    const candidateIds = [...new Set(
-      files.map(f => f.name.split('_')[0]).filter(Boolean)
-    )];
+    // Extract role from filename: {id}_{name}_{role}_{original_file}
+    // Role is the segment(s) between position 2 and the last position
+    function roleFromFilename(name) {
+      const base = name.replace(/\.[^.]+$/, ''); // strip extension
+      const parts = base.split('_');
+      if (parts.length < 4) return ''; // format: id_name_role_file — need at least 4 parts
+      return parts.slice(2, parts.length - 1).join(' ').trim();
+    }
 
-    statusEl.textContent = `${files.length} CV${files.length !== 1 ? 's' : ''} found — fetching role info…`;
+    // Build role map from filenames directly — no Zoho API call needed
+    driveRoleMap = {};
+    files.forEach(f => {
+      const cid = f.name.split('_')[0];
+      const role = roleFromFilename(f.name);
+      if (role) driveRoleMap[cid] = role;
+    });
 
-    // Fetch Posting_Title for each candidate
-    try {
-      const roleRes = await fetch(`/api/zoho/candidate-roles?ids=${candidateIds.join(',')}`);
-      driveRoleMap = roleRes.ok ? await roleRes.json() : {};
-    } catch { driveRoleMap = {}; }
+    statusEl.textContent = `${files.length} CV${files.length !== 1 ? 's' : ''} found.`;
 
     // Populate role dropdown
     const roles = [...new Set(
@@ -1484,6 +1490,7 @@ function filterDriveByRole() {
   const filtered = selectedRole
     ? driveAllFiles.filter(f => (driveRoleMap[f.name.split('_')[0]] || '') === selectedRole)
     : driveAllFiles;
+
 
   driveSelectedIds = filtered.map(f => ({id: f.id, name: f.name}));
 
