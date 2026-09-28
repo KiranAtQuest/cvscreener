@@ -755,7 +755,8 @@ async def zoho_debug_candidate(
     token = get_zoho_access_token()
     headers = {"Authorization": f"Zoho-oauthtoken {token}", "Accept": "application/json"}
     import requests as _req
-    resp = _req.get(f"{recruit_url}/recruit/v2/Candidates/{id}", headers=headers, timeout=20)
+    resp = _req.get(f"{recruit_url}/recruit/v2/Candidates/{id}/JobApplications",
+                    headers=headers, params={"fields": "Posting_Title", "per_page": 5}, timeout=20)
     return {"status": resp.status_code, "body": resp.json() if resp.ok else resp.text}
 
 
@@ -781,10 +782,11 @@ async def zoho_candidate_roles(
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     def fetch_one(cid):
+        # Job applications for this candidate
         resp = _req.get(
-            f"{recruit_url}/recruit/v2/Candidates/{cid}",
+            f"{recruit_url}/recruit/v2/Candidates/{cid}/JobApplications",
             headers=headers,
-            params={"fields": "id,Posting_Title"},
+            params={"fields": "Posting_Title", "per_page": 1},
             timeout=20,
         )
         if not resp.ok or resp.status_code == 204:
