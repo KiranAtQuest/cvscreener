@@ -755,9 +755,16 @@ async def zoho_debug_candidate(
     token = get_zoho_access_token()
     headers = {"Authorization": f"Zoho-oauthtoken {token}", "Accept": "application/json"}
     import requests as _req
-    resp = _req.get(f"{recruit_url}/recruit/v2/Candidates/{id}/JobApplications",
-                    headers=headers, params={"fields": "Posting_Title", "per_page": 5}, timeout=20)
-    return {"status": resp.status_code, "body": resp.json() if resp.ok else resp.text}
+    results = {}
+    for sub in ["Associated_Job_Openings", "Job_Openings", "JobOpenings", "associate_jobopening", "Applications"]:
+        resp = _req.get(f"{recruit_url}/recruit/v2/Candidates/{id}/{sub}",
+                        headers=headers, timeout=20)
+        results[sub] = {"status": resp.status_code, "body": resp.json() if resp.ok else resp.text[:200]}
+    # Also try JobApplications module search
+    resp2 = _req.get(f"{recruit_url}/recruit/v2/JobApplications/search",
+                     headers=headers, params={"criteria": f"(Candidate_Id:equals:{id})", "fields": "Posting_Title", "per_page": 5}, timeout=20)
+    results["JobApplications_search"] = {"status": resp2.status_code, "body": resp2.json() if resp2.ok else resp2.text[:200]}
+    return results
 
 
 @app.get("/api/zoho/candidate-roles")
