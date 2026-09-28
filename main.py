@@ -744,6 +744,21 @@ def get_zoho_access_token() -> str:
     return data["access_token"]
 
 
+@app.get("/api/zoho/debug-candidate")
+async def zoho_debug_candidate(
+    id: str = "",
+    qs_token: Optional[str] = Cookie(default=None),
+):
+    """Return raw Zoho fields for one candidate ID — for debugging only."""
+    _auth.require_admin(qs_token=qs_token)
+    recruit_url = os.environ.get("ZOHO_RECRUIT_URL", "https://recruit.zoho.in")
+    token = get_zoho_access_token()
+    headers = {"Authorization": f"Zoho-oauthtoken {token}", "Accept": "application/json"}
+    import requests as _req
+    resp = _req.get(f"{recruit_url}/recruit/v2/Candidates/{id}", headers=headers, timeout=20)
+    return {"status": resp.status_code, "body": resp.json() if resp.ok else resp.text}
+
+
 @app.get("/api/zoho/candidate-roles")
 async def zoho_candidate_roles(
     ids: str = "",
