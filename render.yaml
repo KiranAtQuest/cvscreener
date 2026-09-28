@@ -19,3 +19,7 @@ services:
         fromDatabase:
           name: cv-screener-db
           property: connectionString
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: GOOGLE_DRIVE_FOLDER_ID
+        sync: false

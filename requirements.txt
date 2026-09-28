@@ -10,3 +10,6 @@ python-jose[cryptography]
 passlib[bcrypt]
 bcrypt==4.0.1
 psycopg2-binary
+google-auth
+google-auth-httplib2
+google-api-python-client

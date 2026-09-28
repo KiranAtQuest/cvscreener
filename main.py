@@ -1,5 +1,5 @@
 import os, io, re, json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 import anthropic
@@ -720,6 +720,127 @@ async def export_excel(body: ExportBody, qs_token: Optional[str] = Cookie(defaul
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ── Google Drive integration ───────────────────────────────────────────────────
+
+def get_drive_service():
+    sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+    if not sa_json:
+        raise HTTPException(status_code=500, detail="GOOGLE_SERVICE_ACCOUNT_JSON not configured on server.")
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+    info = json.loads(sa_json)
+    creds = service_account.Credentials.from_service_account_info(
+        info, scopes=["https://www.googleapis.com/auth/drive.readonly"]
+    )
+    return build("drive", "v3", credentials=creds, cache_discovery=False)
+
+
+@app.get("/api/drive/files")
+async def drive_list_files(
+    from_date: str = "",
+    to_date: str = "",
+    qs_token: Optional[str] = Cookie(default=None),
+):
+    _auth.get_current_user(qs_token)
+    folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
+    if not folder_id:
+        raise HTTPException(status_code=500, detail="GOOGLE_DRIVE_FOLDER_ID not configured on server.")
+
+    # Defaults: last 2 days
+    today = datetime.now(timezone.utc).date()
+    if not from_date:
+        from_date = (today - timedelta(days=2)).isoformat()
+    if not to_date:
+        to_date = today.isoformat()
+
+    # Drive RFC 3339 timestamps
+    from_ts = f"{from_date}T00:00:00Z"
+    to_ts   = f"{to_date}T23:59:59Z"
+
+    service = get_drive_service()
+    q = (
+        f"'{folder_id}' in parents"
+        f" and createdTime >= '{from_ts}'"
+        f" and createdTime <= '{to_ts}'"
+        f" and trashed = false"
+        f" and (mimeType='application/pdf'"
+        f" or mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document'"
+        f" or mimeType='application/msword'"
+        f" or mimeType='text/plain'"
+        f" or mimeType='application/rtf'"
+        f" or mimeType='application/vnd.oasis.opendocument.text')"
+    )
+    results = service.files().list(
+        q=q,
+        fields="files(id,name,createdTime,size,mimeType)",
+        orderBy="createdTime desc",
+        pageSize=500,
+    ).execute()
+    files = results.get("files", [])
+    return {"files": files, "from_date": from_date, "to_date": to_date, "count": len(files)}
+
+
+class DriveScreenBody(BaseModel):
+    jd: str
+    competencies: str = ""
+    calibration: list = []
+    role_title: str = ""
+    file_ids: List[str]
+
+
+@app.post("/api/drive/screen")
+async def drive_screen(body: DriveScreenBody, qs_token: Optional[str] = Cookie(default=None)):
+    user = _auth.get_current_user(qs_token)
+    folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
+    if not folder_id:
+        raise HTTPException(status_code=500, detail="GOOGLE_DRIVE_FOLDER_ID not configured on server.")
+
+    service = get_drive_service()
+    from googleapiclient.http import MediaIoBaseDownload
+
+    cvs = {}
+    for fid in body.file_ids:
+        meta = service.files().get(fileId=fid, fields="id,name,mimeType").execute()
+        fname = meta.get("name", fid)
+        buf = io.BytesIO()
+        request = service.files().get_media(fileId=fid)
+        downloader = MediaIoBaseDownload(buf, request)
+        done = False
+        while not done:
+            _, done = downloader.next_chunk()
+        try:
+            cvs[fname] = parse_bytes(buf.getvalue(), fname)
+        except Exception as e:
+            error_plain, fix_suggestion = _plain_error(fname, e)
+            ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else "unknown"
+            try:
+                _auth.log_upload_error(fname, ext, body.role_title or "Drive import",
+                                       user["username"], type(e).__name__, error_plain, fix_suggestion)
+            except Exception:
+                pass
+
+    if not cvs:
+        raise HTTPException(status_code=400, detail="No files could be read from Drive.")
+
+    past_examples = _auth.get_screening_examples(body.role_title) if body.role_title else []
+    client = anthropic.Anthropic(api_key=get_api_key())
+    msg = client.messages.create(
+        model="claude-opus-4-8", max_tokens=16000,
+        messages=[{"role": "user", "content": build_prompt(
+            body.jd, body.competencies, cvs, body.calibration, past_examples
+        )}]
+    )
+    truncated = msg.stop_reason == "max_tokens"
+    raw = msg.content[0].text if msg.content else ""
+    if not raw:
+        raise HTTPException(status_code=502, detail="Claude returned an empty response.")
+    try:
+        results = extract_json(raw)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not parse Claude response: {e}\n\n{raw[:500]}")
+    return {"results": results, "truncated": truncated, "past_examples_used": len(past_examples)}
 
 
 # ── Serve frontend ─────────────────────────────────────────────────────────────

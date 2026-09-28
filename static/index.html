@@ -686,17 +686,51 @@ textarea { min-height: 140px; line-height: 1.5; }
       <!-- Upload card -->
       <div class="card">
         <h2>CV Files</h2>
-        <div class="card-sub">Upload PDF, DOCX or DOC files. Up to 500 CVs per screening — large batches are processed automatically.</div>
-        <div class="dropzone" id="dropzone"
-             ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event)">
-          <input type="file" id="file-input" accept=".pdf,.doc,.docx" multiple onchange="filesChosen(event)">
-          <div class="dz-icon">📄</div>
-          <div class="dz-label">Drag &amp; drop CVs or click to browse</div>
-          <div class="dz-sub">PDF, DOCX, DOC · up to 500 files</div>
+        <!-- Source tabs -->
+        <div class="upload-tabs" style="display:flex;gap:0;margin-bottom:16px;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+          <button class="upload-tab-btn active" id="tab-upload" onclick="switchUploadTab('upload')"
+            style="flex:1;padding:9px 0;font-size:13px;font-weight:600;border:none;cursor:pointer;background:#fff;color:var(--navy);border-right:1px solid var(--border);font-family:inherit">
+            📂 Upload Files
+          </button>
+          <button class="upload-tab-btn" id="tab-drive" onclick="switchUploadTab('drive')"
+            style="flex:1;padding:9px 0;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--light);color:var(--grey);font-family:inherit">
+            ☁️ From Google Drive
+          </button>
         </div>
-        <div class="file-list" id="file-list"></div>
-        <div class="err-msg" id="file-err"></div>
-        <div id="file-time-est" style="font-size:12px;color:var(--grey);margin-top:6px;display:none"></div>
+
+        <!-- Upload pane -->
+        <div id="pane-upload">
+          <div class="card-sub" style="margin-bottom:10px">Upload PDF, DOCX or DOC files. Up to 500 CVs — large batches processed automatically.</div>
+          <div class="dropzone" id="dropzone"
+               ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event)">
+            <input type="file" id="file-input" accept=".pdf,.doc,.docx" multiple onchange="filesChosen(event)">
+            <div class="dz-icon">📄</div>
+            <div class="dz-label">Drag &amp; drop CVs or click to browse</div>
+            <div class="dz-sub">PDF, DOCX, DOC · up to 500 files</div>
+          </div>
+          <div class="file-list" id="file-list"></div>
+          <div class="err-msg" id="file-err"></div>
+          <div id="file-time-est" style="font-size:12px;color:var(--grey);margin-top:6px;display:none"></div>
+        </div>
+
+        <!-- Drive pane -->
+        <div id="pane-drive" style="display:none">
+          <div class="card-sub" style="margin-bottom:12px">Pull CVs from the linked Google Drive folder. Default: last 2 days.</div>
+          <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap">
+            <div style="flex:1;min-width:130px">
+              <label style="font-size:12px;font-weight:600;color:var(--grey);display:block;margin-bottom:4px">From date</label>
+              <input type="date" id="drive-from" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px">
+            </div>
+            <div style="flex:1;min-width:130px">
+              <label style="font-size:12px;font-weight:600;color:var(--grey);display:block;margin-bottom:4px">To date</label>
+              <input type="date" id="drive-to" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px">
+            </div>
+            <button class="btn-sm blue" onclick="loadDriveFiles()" id="drive-load-btn">Load from Drive</button>
+          </div>
+          <div id="drive-status" style="font-size:13px;color:var(--grey);margin-bottom:8px"></div>
+          <div id="drive-file-list" style="max-height:240px;overflow-y:auto;background:var(--light);border-radius:8px;border:1px solid var(--border);padding:8px;display:none"></div>
+          <div class="err-msg" id="drive-err"></div>
+        </div>
       </div>
 
       <!-- Calibration card -->
@@ -1257,6 +1291,7 @@ function removeFile(i) {
 function updateTimeEst() {
   const el = document.getElementById("file-time-est");
   if (!el) return;
+  if (driveMode) { el.style.display = "none"; return; }
   const n = state.files.length;
   if (n === 0) { el.style.display = "none"; return; }
   const batches = Math.ceil(n / 25);
@@ -1344,6 +1379,72 @@ function renderCalib() {
   ).join("");
 }
 
+// ── Upload tab switching ────────────────────────────────────────────────────────
+let driveMode = false;
+let driveSelectedIds = []; // [{id, name}]
+
+function switchUploadTab(tab) {
+  driveMode = (tab === 'drive');
+  document.getElementById('pane-upload').style.display = driveMode ? 'none' : '';
+  document.getElementById('pane-drive').style.display  = driveMode ? '' : 'none';
+  document.getElementById('tab-upload').style.background = driveMode ? 'var(--light)' : '#fff';
+  document.getElementById('tab-upload').style.color      = driveMode ? 'var(--grey)' : 'var(--navy)';
+  document.getElementById('tab-drive').style.background  = driveMode ? '#fff' : 'var(--light)';
+  document.getElementById('tab-drive').style.color       = driveMode ? 'var(--navy)' : 'var(--grey)';
+  updateTimeEst();
+}
+
+function driveDefaultDates() {
+  const today = new Date();
+  const twoDaysAgo = new Date(today); twoDaysAgo.setDate(today.getDate() - 2);
+  const fmt = d => d.toISOString().slice(0, 10);
+  const fromEl = document.getElementById('drive-from');
+  const toEl   = document.getElementById('drive-to');
+  if (!fromEl.value) fromEl.value = fmt(twoDaysAgo);
+  if (!toEl.value)   toEl.value   = fmt(today);
+}
+
+async function loadDriveFiles() {
+  driveDefaultDates();
+  const from = document.getElementById('drive-from').value;
+  const to   = document.getElementById('drive-to').value;
+  const btn  = document.getElementById('drive-load-btn');
+  const statusEl = document.getElementById('drive-status');
+  const listEl   = document.getElementById('drive-file-list');
+  const errEl    = document.getElementById('drive-err');
+  errEl.textContent = '';
+  listEl.style.display = 'none';
+  statusEl.textContent = 'Loading from Drive…';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/drive/files?from_date=${from}&to_date=${to}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    const files = data.files || [];
+    driveSelectedIds = files.map(f => ({id: f.id, name: f.name}));
+    if (files.length === 0) {
+      statusEl.textContent = `No CVs found between ${from} and ${to}.`;
+      listEl.style.display = 'none';
+    } else {
+      statusEl.textContent = `${files.length} CV${files.length !== 1 ? 's' : ''} found — all selected for screening.`;
+      listEl.innerHTML = files.map(f =>
+        `<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px">
+          <span style="color:var(--blue)">📄</span>
+          <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.name}</span>
+          <span style="color:var(--grey);font-size:11px;flex-shrink:0">${f.createdTime ? f.createdTime.slice(0,10) : ''}</span>
+        </div>`
+      ).join('');
+      listEl.style.display = '';
+    }
+    updateTimeEst();
+  } catch(e) {
+    statusEl.textContent = '';
+    errEl.textContent = '❌ ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // ── Screen CVs ─────────────────────────────────────────────────────────────────
 const BATCH_SIZE = 25;
 
@@ -1367,9 +1468,94 @@ function updateProgress(title, msg, batchDone, batchTotal) {
   }
 }
 
+async function runDriveScreen(jd) {
+  if (driveSelectedIds.length === 0) {
+    showToast("Load files from Drive first."); return;
+  }
+  state.roleTitle = document.getElementById("role-title").value.trim();
+  state.currentJdHash = jdHash(jd);
+  state.decisions = {};
+
+  const calibStr = JSON.stringify(state.calibration.map(c => c.note || c));
+  const compStr  = state.competencies.join("\n");
+  const totalFiles = driveSelectedIds.length;
+  const allIds = driveSelectedIds.map(f => f.id);
+  // Batch Drive IDs too (25 per batch)
+  const idBatches = [];
+  for (let i = 0; i < allIds.length; i += BATCH_SIZE) idBatches.push(allIds.slice(i, i + BATCH_SIZE));
+  const numBatches = idBatches.length;
+
+  showProgress("Screening CVs from Drive…",
+    `Fetching and screening ${totalFiles} CV${totalFiles>1?"s":""} from Google Drive.`);
+  if (numBatches > 1) updateProgress("Screening from Drive…", "", 0, numBatches);
+
+  const allResults = [];
+  let totalTruncated = false;
+  let pastExamplesUsed = 0;
+
+  try {
+    for (let b = 0; b < numBatches; b++) {
+      if (numBatches > 1) {
+        updateProgress(
+          `Screening from Drive… (batch ${b+1} of ${numBatches})`,
+          `Processing files ${b*BATCH_SIZE+1}–${Math.min((b+1)*BATCH_SIZE, totalFiles)} of ${totalFiles}`,
+          b, numBatches
+        );
+      }
+      const payload = {
+        jd, competencies: compStr,
+        calibration: JSON.parse(calibStr),
+        role_title: state.roleTitle,
+        file_ids: idBatches[b],
+      };
+      const res = await fetch("/api/drive/screen", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(`Batch ${b+1}: ${data.detail || res.statusText}`);
+      }
+      const data = await res.json();
+      allResults.push(...(data.results || []));
+      if (data.truncated) totalTruncated = true;
+      if (b === 0) pastExamplesUsed = data.past_examples_used || 0;
+      if (numBatches > 1) updateProgress(
+        `Screening from Drive… (batch ${b+1} of ${numBatches})`,
+        `${allResults.length} CVs screened so far…`,
+        b + 1, numBatches
+      );
+    }
+
+    allResults.sort((a, b) => {
+      if (a.filtered && !b.filtered) return 1;
+      if (!a.filtered && b.filtered) return -1;
+      return (b.overall || 0) - (a.overall || 0);
+    });
+    allResults.forEach((r, i) => { r.rank = i + 1; });
+    state.results = allResults;
+    state.truncated = totalTruncated;
+    state.pastExamplesUsed = pastExamplesUsed;
+    for (const r of state.results) {
+      const k = candKey(r);
+      state.decisions[k] = { shortlisted: r.shortlisted === true ? true : null };
+    }
+    hideProgress();
+    renderResults();
+    showScreen("results");
+  } catch(e) {
+    hideProgress();
+    showToast("❌ " + e.message, 5000);
+  }
+}
+
 async function runScreen() {
   const jd = document.getElementById("jd-input").value.trim();
   if (!jd) { showToast("Please enter a job description."); return; }
+
+  if (driveMode) { await runDriveScreen(jd); return; }
+
   if (state.files.length === 0) { showToast("Please upload at least one CV."); return; }
 
   state.roleTitle = document.getElementById("role-title").value.trim();
@@ -1820,6 +2006,7 @@ function today() {
 renderChips();
 renderCalib();
 renderFileList();
+driveDefaultDates();
 initAuth();
 </script>
 </body>
