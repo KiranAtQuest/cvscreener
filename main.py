@@ -755,14 +755,11 @@ async def zoho_debug_candidate(
     token = get_zoho_access_token()
     headers = {"Authorization": f"Zoho-oauthtoken {token}", "Accept": "application/json"}
     import requests as _req
-    # Try fetching candidate with Posting_Title field explicitly
-    resp = _req.get(f"{recruit_url}/recruit/v2/Candidates/{id}",
-                    headers=headers, params={"fields": "id,Full_Name,Posting_Title,Current_Job_Opening_Id"}, timeout=20)
-    candidate_data = resp.json() if resp.ok else resp.text
-    # Also list available modules to find the right one
-    resp2 = _req.get(f"{recruit_url}/recruit/v2/settings/modules", headers=headers, timeout=20)
-    modules = [m.get("api_name") for m in resp2.json().get("modules", [])] if resp2.ok else resp2.text
-    return {"candidate": candidate_data, "modules": modules}
+    resp = _req.get(f"{recruit_url}/recruit/v2/Submissions/search",
+                    headers=headers,
+                    params={"criteria": f"(Candidate_Id:equals:{id})", "fields": "Posting_Title,id", "per_page": 5},
+                    timeout=20)
+    return {"status": resp.status_code, "body": resp.json() if resp.ok else resp.text}
 
 
 @app.get("/api/zoho/candidate-roles")
@@ -787,11 +784,10 @@ async def zoho_candidate_roles(
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     def fetch_one(cid):
-        # Job applications for this candidate
         resp = _req.get(
-            f"{recruit_url}/recruit/v2/Candidates/{cid}/JobApplications",
+            f"{recruit_url}/recruit/v2/Submissions/search",
             headers=headers,
-            params={"fields": "Posting_Title", "per_page": 1},
+            params={"criteria": f"(Candidate_Id:equals:{cid})", "fields": "Posting_Title", "per_page": 1},
             timeout=20,
         )
         if not resp.ok or resp.status_code == 204:
