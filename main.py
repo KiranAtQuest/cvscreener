@@ -755,16 +755,14 @@ async def zoho_debug_candidate(
     token = get_zoho_access_token()
     headers = {"Authorization": f"Zoho-oauthtoken {token}", "Accept": "application/json"}
     import requests as _req
-    results = {}
-    for sub in ["Associated_Job_Openings", "Job_Openings", "JobOpenings", "associate_jobopening", "Applications"]:
-        resp = _req.get(f"{recruit_url}/recruit/v2/Candidates/{id}/{sub}",
-                        headers=headers, timeout=20)
-        results[sub] = {"status": resp.status_code, "body": resp.json() if resp.ok else resp.text[:200]}
-    # Also try JobApplications module search
-    resp2 = _req.get(f"{recruit_url}/recruit/v2/JobApplications/search",
-                     headers=headers, params={"criteria": f"(Candidate_Id:equals:{id})", "fields": "Posting_Title", "per_page": 5}, timeout=20)
-    results["JobApplications_search"] = {"status": resp2.status_code, "body": resp2.json() if resp2.ok else resp2.text[:200]}
-    return results
+    # Try fetching candidate with Posting_Title field explicitly
+    resp = _req.get(f"{recruit_url}/recruit/v2/Candidates/{id}",
+                    headers=headers, params={"fields": "id,Full_Name,Posting_Title,Current_Job_Opening_Id"}, timeout=20)
+    candidate_data = resp.json() if resp.ok else resp.text
+    # Also list available modules to find the right one
+    resp2 = _req.get(f"{recruit_url}/recruit/v2/settings/modules", headers=headers, timeout=20)
+    modules = [m.get("api_name") for m in resp2.json().get("modules", [])] if resp2.ok else resp2.text
+    return {"candidate": candidate_data, "modules": modules}
 
 
 @app.get("/api/zoho/candidate-roles")
