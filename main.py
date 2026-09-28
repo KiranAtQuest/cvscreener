@@ -755,18 +755,11 @@ async def zoho_debug_candidate(
     token = get_zoho_access_token()
     headers = {"Authorization": f"Zoho-oauthtoken {token}", "Accept": "application/json"}
     import requests as _req
-    # Get a real job opening ID first
-    resp = _req.get(f"{recruit_url}/recruit/v2/Job_Openings", headers=headers,
-                    params={"per_page": 1, "fields": "id,Posting_Title"}, timeout=20)
-    job = resp.json().get("data", [{}])[0] if resp.ok else {}
-    job_id = job.get("id", "")
-    results = {"job": job}
-    # Try searching candidates by job opening using different field names
-    for field in ["Current_Job_Opening_Id", "Job_Opening_Id", "Associated_Job_Opening"]:
-        r = _req.get(f"{recruit_url}/recruit/v2/Candidates/search", headers=headers,
-                     params={"criteria": f"({field}:equals:{job_id})", "fields": "id,Full_Name", "per_page": 3}, timeout=20)
-        results[field] = {"status": r.status_code, "body": r.json() if r.ok else r.text[:200]}
-    return results
+    # Try COQL to join candidates with job openings
+    query = f"SELECT id, Full_Name, Posting_Title FROM Candidates WHERE id = {id}"
+    resp = _req.post(f"{recruit_url}/recruit/v2/coql", headers=headers,
+                     json={"select_query": query}, timeout=20)
+    return {"coql": {"status": resp.status_code, "body": resp.json() if resp.ok else resp.text[:400]}}
 
 
 @app.get("/api/zoho/candidate-roles")
