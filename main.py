@@ -722,6 +722,66 @@ async def export_excel(body: ExportBody, qs_token: Optional[str] = Cookie(defaul
     )
 
 
+# ── Zoho Recruit integration ───────────────────────────────────────────────────
+
+def get_zoho_access_token() -> str:
+    accounts_url = os.environ.get("ZOHO_ACCOUNTS_URL", "https://accounts.zoho.in")
+    r = __import__("requests").post(
+        f"{accounts_url}/oauth/v2/token",
+        data={
+            "grant_type": "refresh_token",
+            "client_id":     os.environ.get("ZOHO_CLIENT_ID", ""),
+            "client_secret": os.environ.get("ZOHO_CLIENT_SECRET", ""),
+            "refresh_token": os.environ.get("ZOHO_REFRESH_TOKEN", ""),
+        },
+        timeout=30,
+    )
+    if not r.ok:
+        raise HTTPException(status_code=502, detail=f"Zoho auth failed: {r.text[:200]}")
+    data = r.json()
+    if "access_token" not in data:
+        raise HTTPException(status_code=502, detail=f"Zoho token missing: {data}")
+    return data["access_token"]
+
+
+@app.get("/api/zoho/candidate-roles")
+async def zoho_candidate_roles(
+    ids: str = "",
+    qs_token: Optional[str] = Cookie(default=None),
+):
+    """Given comma-separated Zoho candidate IDs, return {id: posting_title}."""
+    _auth.get_current_user(qs_token)
+    if not ids.strip():
+        return {}
+    id_list = [i.strip() for i in ids.split(",") if i.strip()]
+    if not id_list:
+        return {}
+
+    recruit_url = os.environ.get("ZOHO_RECRUIT_URL", "https://recruit.zoho.in")
+    token = get_zoho_access_token()
+    headers = {"Authorization": f"Zoho-oauthtoken {token}", "Accept": "application/json"}
+
+    mapping = {}
+    # Zoho supports up to 100 IDs per search criteria call
+    import requests as _req
+    for chunk_start in range(0, len(id_list), 100):
+        chunk = id_list[chunk_start:chunk_start + 100]
+        criteria = f"(id:in:{','.join(chunk)})"
+        resp = _req.get(
+            f"{recruit_url}/recruit/v2/Candidates/search",
+            headers=headers,
+            params={"criteria": criteria, "fields": "id,Posting_Title", "per_page": 200},
+            timeout=30,
+        )
+        if resp.status_code == 204:
+            continue
+        if not resp.ok:
+            continue
+        for rec in resp.json().get("data", []):
+            mapping[str(rec.get("id", ""))] = rec.get("Posting_Title") or ""
+    return mapping
+
+
 # ── Google Drive integration ───────────────────────────────────────────────────
 
 def get_drive_service():

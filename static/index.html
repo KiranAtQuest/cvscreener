@@ -728,6 +728,15 @@ textarea { min-height: 140px; line-height: 1.5; }
             <button class="btn-sm blue" onclick="loadDriveFiles()" id="drive-load-btn">Load from Drive</button>
           </div>
           <div id="drive-status" style="font-size:13px;color:var(--grey);margin-bottom:8px"></div>
+          <!-- Role filter dropdown (shown after files load) -->
+          <div id="drive-role-wrap" style="display:none;margin-bottom:10px">
+            <label style="font-size:12px;font-weight:600;color:var(--grey);display:block;margin-bottom:4px">Filter by role applied for</label>
+            <select id="drive-role-select" onchange="filterDriveByRole()"
+              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:#fff">
+              <option value="">All roles</option>
+            </select>
+            <div id="drive-role-count" style="font-size:12px;color:var(--grey);margin-top:4px"></div>
+          </div>
           <div id="drive-file-list" style="max-height:240px;overflow-y:auto;background:var(--light);border-radius:8px;border:1px solid var(--border);padding:8px;display:none"></div>
           <div class="err-msg" id="drive-err"></div>
         </div>
@@ -1404,16 +1413,21 @@ function driveDefaultDates() {
   if (!toEl.value)   toEl.value   = fmt(today);
 }
 
+let driveAllFiles = []; // all files from Drive with role info
+let driveRoleMap  = {}; // {candidate_id: posting_title}
+
 async function loadDriveFiles() {
   driveDefaultDates();
   const from = document.getElementById('drive-from').value;
   const to   = document.getElementById('drive-to').value;
   const btn  = document.getElementById('drive-load-btn');
-  const statusEl = document.getElementById('drive-status');
-  const listEl   = document.getElementById('drive-file-list');
-  const errEl    = document.getElementById('drive-err');
+  const statusEl   = document.getElementById('drive-status');
+  const listEl     = document.getElementById('drive-file-list');
+  const errEl      = document.getElementById('drive-err');
+  const roleWrap   = document.getElementById('drive-role-wrap');
   errEl.textContent = '';
   listEl.style.display = 'none';
+  roleWrap.style.display = 'none';
   statusEl.textContent = 'Loading from Drive…';
   btn.disabled = true;
   try {
@@ -1421,28 +1435,78 @@ async function loadDriveFiles() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || res.statusText);
     const files = data.files || [];
-    driveSelectedIds = files.map(f => ({id: f.id, name: f.name}));
+    driveAllFiles = files;
+
     if (files.length === 0) {
       statusEl.textContent = `No CVs found between ${from} and ${to}.`;
-      listEl.style.display = 'none';
-    } else {
-      statusEl.textContent = `${files.length} CV${files.length !== 1 ? 's' : ''} found — all selected for screening.`;
-      listEl.innerHTML = files.map(f =>
-        `<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px">
-          <span style="color:var(--blue)">📄</span>
-          <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.name}</span>
-          <span style="color:var(--grey);font-size:11px;flex-shrink:0">${f.createdTime ? f.createdTime.slice(0,10) : ''}</span>
-        </div>`
-      ).join('');
-      listEl.style.display = '';
+      driveSelectedIds = [];
+      updateTimeEst();
+      return;
     }
-    updateTimeEst();
+
+    // Extract candidate IDs from filenames (first segment before _)
+    const candidateIds = [...new Set(
+      files.map(f => f.name.split('_')[0]).filter(Boolean)
+    )];
+
+    statusEl.textContent = `${files.length} CV${files.length !== 1 ? 's' : ''} found — fetching role info…`;
+
+    // Fetch Posting_Title for each candidate
+    try {
+      const roleRes = await fetch(`/api/zoho/candidate-roles?ids=${candidateIds.join(',')}`);
+      driveRoleMap = roleRes.ok ? await roleRes.json() : {};
+    } catch { driveRoleMap = {}; }
+
+    // Populate role dropdown
+    const roles = [...new Set(
+      files.map(f => driveRoleMap[f.name.split('_')[0]] || '').filter(Boolean)
+    )].sort();
+    const sel = document.getElementById('drive-role-select');
+    sel.innerHTML = '<option value="">All roles</option>' +
+      roles.map(r => `<option value="${r}">${r}</option>`).join('');
+    if (roles.length > 0) roleWrap.style.display = '';
+
+    filterDriveByRole();
   } catch(e) {
     statusEl.textContent = '';
     errEl.textContent = '❌ ' + e.message;
   } finally {
     btn.disabled = false;
   }
+}
+
+function filterDriveByRole() {
+  const selectedRole = document.getElementById('drive-role-select').value;
+  const statusEl  = document.getElementById('drive-status');
+  const listEl    = document.getElementById('drive-file-list');
+  const countEl   = document.getElementById('drive-role-count');
+
+  const filtered = selectedRole
+    ? driveAllFiles.filter(f => (driveRoleMap[f.name.split('_')[0]] || '') === selectedRole)
+    : driveAllFiles;
+
+  driveSelectedIds = filtered.map(f => ({id: f.id, name: f.name}));
+
+  statusEl.textContent = `${filtered.length} CV${filtered.length !== 1 ? 's' : ''} selected for screening.`;
+  countEl.textContent = selectedRole
+    ? `Showing ${filtered.length} of ${driveAllFiles.length} files for "${selectedRole}"`
+    : '';
+
+  if (filtered.length === 0) {
+    listEl.style.display = 'none';
+    return;
+  }
+  listEl.innerHTML = filtered.map(f => {
+    const role = driveRoleMap[f.name.split('_')[0]] || '';
+    return `<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px">
+      <span style="color:var(--blue)">📄</span>
+      <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${f.name}">${f.name}</span>
+      ${role ? `<span style="font-size:10px;background:var(--blue-bg);color:var(--blue-dark);padding:1px 6px;border-radius:4px;flex-shrink:0">${role}</span>` : ''}
+      <span style="color:var(--grey);font-size:11px;flex-shrink:0">${f.createdTime ? f.createdTime.slice(0,10) : ''}</span>
+    </div>`;
+  }).join('');
+  listEl.style.display = '';
+  updateTimeEst();
 }
 
 // ── Screen CVs ─────────────────────────────────────────────────────────────────
