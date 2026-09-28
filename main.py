@@ -755,12 +755,14 @@ async def zoho_debug_candidate(
     token = get_zoho_access_token()
     headers = {"Authorization": f"Zoho-oauthtoken {token}", "Accept": "application/json"}
     import requests as _req
-    results = {}
-    for sub in ["Submissions", "Job_Openings", "submissions", "job_openings"]:
-        resp = _req.get(f"{recruit_url}/recruit/v2/Candidates/{id}/{sub}",
-                        headers=headers, timeout=20)
-        results[sub] = {"status": resp.status_code, "body": (resp.json() if resp.ok else resp.text[:300])}
-    return results
+    # Fetch full candidate record with all fields to find job opening reference
+    resp = _req.get(f"{recruit_url}/recruit/v2/Candidates/{id}", headers=headers, timeout=20)
+    if not resp.ok:
+        return {"error": resp.text}
+    data = resp.json().get("data", [{}])[0]
+    # Return only keys that look job/posting related
+    job_keys = {k: v for k, v in data.items() if v and any(x in k.lower() for x in ["job", "post", "opening", "position", "title", "role"])}
+    return {"all_job_related_fields": job_keys, "all_keys": list(data.keys())}
 
 
 @app.get("/api/zoho/candidate-roles")
