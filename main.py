@@ -832,14 +832,14 @@ async def drive_list_files(
     if not folder_id:
         raise HTTPException(status_code=500, detail="GOOGLE_DRIVE_FOLDER_ID not configured on server.")
 
-    # Defaults: last 2 days
+    # Defaults: last 7 days (generous window covers timezone offsets and weekends)
     today = datetime.now(timezone.utc).date()
     if not from_date:
-        from_date = (today - timedelta(days=2)).isoformat()
+        from_date = (today - timedelta(days=7)).isoformat()
     if not to_date:
         to_date = today.isoformat()
 
-    # Drive RFC 3339 timestamps
+    # Drive RFC 3339 timestamps — use start of from_date and end of to_date in UTC
     from_ts = f"{from_date}T00:00:00Z"
     to_ts   = f"{to_date}T23:59:59Z"
 
@@ -861,6 +861,8 @@ async def drive_list_files(
         fields="files(id,name,createdTime,size,mimeType)",
         orderBy="createdTime desc",
         pageSize=500,
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True,
     ).execute()
     files = results.get("files", [])
     return {"files": files, "from_date": from_date, "to_date": to_date, "count": len(files)}

@@ -1405,11 +1405,11 @@ function switchUploadTab(tab) {
 
 function driveDefaultDates() {
   const today = new Date();
-  const twoDaysAgo = new Date(today); twoDaysAgo.setDate(today.getDate() - 2);
+  const sevenDaysAgo = new Date(today); sevenDaysAgo.setDate(today.getDate() - 7);
   const fmt = d => d.toISOString().slice(0, 10);
   const fromEl = document.getElementById('drive-from');
   const toEl   = document.getElementById('drive-to');
-  if (!fromEl.value) fromEl.value = fmt(twoDaysAgo);
+  if (!fromEl.value) fromEl.value = fmt(sevenDaysAgo);
   if (!toEl.value)   toEl.value   = fmt(today);
 }
 
@@ -1447,10 +1447,14 @@ async function loadDriveFiles() {
     // Extract role from filename: {id}_{name}_{role}_{original_file}
     // Role is the segment(s) between position 2 and the last position
     function roleFromFilename(name) {
-      const base = name.replace(/\.[^.]+$/, ''); // strip extension
-      const parts = base.split('_');
-      if (parts.length < 4) return ''; // format: id_name_role_file — need at least 4 parts
-      return parts.slice(2, parts.length - 1).join(' ').trim();
+      // Sync.py format: {numeric_id}_{position_title}_{candidate_name}_{original_file}
+      // Spaces are preserved within each segment; _ is only the segment separator.
+      // Only parse files whose first segment is a numeric Zoho candidate ID.
+      const parts = name.split('_');
+      if (parts.length < 4) return '';
+      if (!/^\d+$/.test(parts[0])) return ''; // not a sync.py file
+      // part[0]=id, part[1]=position title, part[2]=candidate name, part[3]=original file
+      return parts[1].trim();
     }
 
     // Build role map from filenames directly — no Zoho API call needed
