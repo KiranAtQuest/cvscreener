@@ -1,5 +1,5 @@
 import os, io, re, json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 import anthropic
@@ -10,8 +10,8 @@ from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, Table, TableStyle
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Response
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import Cookie, Depends, FastAPI, UploadFile, File, Form, HTTPException, Response as FResponse
+from fastapi.responses import Response, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -19,23 +19,151 @@ import auth as _auth
 
 app = FastAPI(title="CV Screener – Quest Alliance")
 
-
+# ── Startup ────────────────────────────────────────────────────────────────────
 @app.on_event("startup")
 def startup():
-    if os.environ.get("DATABASE_URL"):
-        _auth.init_db()
+    _auth.init_db()
 
+# ── Auth routes ────────────────────────────────────────────────────────────────
+
+@app.post("/api/auth/login")
+async def login(
+    username: str = Form(...),
+    password: str = Form(...),
+    response: FResponse = None,
+):
+    user = _auth.get_user_by_credentials(username, password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    token = _auth.create_token(user["id"], user["username"], user["role"])
+    resp = JSONResponse({"username": user["username"], "role": user["role"], "email": user["email"]})
+    resp.set_cookie(
+        _auth.COOKIE, token,
+        httponly=True, samesite="lax", secure=False,  # set secure=True behind HTTPS
+        max_age=_auth.TOKEN_TTL * 3600,
+    )
+    return resp
+
+@app.post("/api/auth/logout")
+async def logout():
+    resp = JSONResponse({"ok": True})
+    resp.delete_cookie(_auth.COOKIE)
+    return resp
+
+@app.get("/api/auth/me")
+async def me(qs_token: Optional[str] = Cookie(default=None)):
+    if not qs_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    user = _auth.get_current_user(qs_token)
+    return {"username": user["username"], "role": user["role"], "email": user["email"]}
+
+# ── Admin routes ───────────────────────────────────────────────────────────────
+
+class NewUser(BaseModel):
+    username: str
+    email: str
+    password: str
+    role: str = "recruiter"
+
+class UpdateUser(BaseModel):
+    role: Optional[str] = None
+    active: Optional[bool] = None
+    password: Optional[str] = None
+
+@app.get("/api/admin/users")
+async def admin_list_users(qs_token: Optional[str] = Cookie(default=None)):
+    _auth.require_admin(qs_token=qs_token)
+    return _auth.list_users()
+
+@app.post("/api/admin/users")
+async def admin_create_user(body: NewUser, qs_token: Optional[str] = Cookie(default=None)):
+    _auth.require_admin(qs_token=qs_token)
+    return _auth.create_user(body.username, body.email, body.password, body.role)
+
+@app.patch("/api/admin/users/{uid}")
+async def admin_update_user(uid: int, body: UpdateUser, qs_token: Optional[str] = Cookie(default=None)):
+    _auth.require_admin(qs_token=qs_token)
+    return _auth.update_user(uid, body.role, body.active, body.password)
+
+@app.delete("/api/admin/users/{uid}")
+async def admin_delete_user(uid: int, qs_token: Optional[str] = Cookie(default=None)):
+    admin = _auth.require_admin(qs_token=qs_token)
+    _auth.delete_user(uid, admin["id"])
+    return {"ok": True}
+
+@app.get("/api/admin/errors")
+async def admin_get_errors(qs_token: Optional[str] = Cookie(default=None)):
+    _auth.require_admin(qs_token=qs_token)
+    return _auth.get_upload_errors()
+
+class ErrorStatusUpdate(BaseModel):
+    status: str = "resolved"
+
+@app.patch("/api/admin/errors/{error_id}")
+async def admin_update_error(error_id: int, body: ErrorStatusUpdate,
+                              qs_token: Optional[str] = Cookie(default=None)):
+    _auth.require_admin(qs_token=qs_token)
+    _auth.update_error_status(error_id, body.status)
+    return {"ok": True}
+
+# ── Calibration notes routes ───────────────────────────────────────────────────
+
+class CalibNote(BaseModel):
+    note: str
+    jd_hash: str = ""
+
+@app.get("/api/calibration")
+async def get_calibration(jd_hash: str = "", qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
+    return _auth.get_calibration_notes(jd_hash)
+
+@app.post("/api/calibration")
+async def add_calibration(body: CalibNote, qs_token: Optional[str] = Cookie(default=None)):
+    user = _auth.get_current_user(qs_token)
+    return _auth.add_calibration_note(body.note, user["username"], body.jd_hash)
+
+@app.delete("/api/calibration/{note_id}")
+async def delete_calibration(note_id: int, qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
+    _auth.delete_calibration_note(note_id)
+    return {"ok": True}
 
 # ── File parsing ───────────────────────────────────────────────────────────────
+
+def _plain_error(filename: str, exc: Exception):
+    msg = str(exc).lower()
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "unknown"
+    if "password" in msg or "encrypt" in msg:
+        return (
+            f"The file '{filename}' is password-protected and cannot be opened.",
+            "Remove the password from the file before uploading. In Word/Acrobat go to File → Protect/Security and remove the password."
+        )
+    if "corrupt" in msg or "invalid" in msg or "bad" in msg:
+        return (
+            f"The file '{filename}' appears to be damaged or incomplete.",
+            "Try re-saving from the original app (Word, Acrobat) and upload again."
+        )
+    if ext == "pdf":
+        return (
+            f"The PDF '{filename}' could not be read. It may be a scanned image without selectable text.",
+            "Use an OCR tool (Adobe Acrobat, online2pdf.com) to convert the scanned PDF to text-based PDF before uploading."
+        )
+    if ext in ("doc", "docx"):
+        return (
+            f"The Word document '{filename}' could not be opened.",
+            "Re-save the file as .docx in Microsoft Word or Google Docs, then upload again."
+        )
+    return (
+        f"The file '{filename}' could not be read ({ext.upper()} format).",
+        "Try converting the file to PDF or DOCX and uploading again. If the problem continues, contact your administrator."
+    )
 
 def extract_text_from_pdf(b: bytes) -> str:
     with pdfplumber.open(io.BytesIO(b)) as p:
         return "\n".join(pg.extract_text() or "" for pg in p.pages)
 
-
 def extract_text_from_docx(b: bytes) -> str:
     return "\n".join(para.text for para in Document(io.BytesIO(b)).paragraphs)
-
 
 def parse_bytes(b: bytes, name: str) -> str:
     n = name.lower()
@@ -43,47 +171,15 @@ def parse_bytes(b: bytes, name: str) -> str:
     if n.endswith((".docx", ".doc")): return extract_text_from_docx(b)
     return b.decode("utf-8", errors="replace")
 
-
-def plain_error_and_fix(filename: str, exc: Exception):
-    msg = str(exc).lower()
-    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "unknown"
-    if "password" in msg or "encrypt" in msg:
-        return (
-            f"The file '{filename}' is password-protected and cannot be opened.",
-            "Remove the password protection from the file before uploading. Open the file, go to File → Protect/Security and remove the password."
-        )
-    if "corrupt" in msg or "invalid" in msg or "bad" in msg:
-        return (
-            f"The file '{filename}' appears to be damaged or incomplete.",
-            "Try re-saving the file from the original application (Word, Acrobat, etc.) and uploading again."
-        )
-    if ext == "pdf":
-        return (
-            f"The PDF file '{filename}' could not be read. It may be a scanned image without selectable text.",
-            "If this is a scanned PDF, use an OCR tool (like Adobe Acrobat or online2pdf.com) to convert it to a text-based PDF before uploading."
-        )
-    if ext in ("doc", "docx"):
-        return (
-            f"The Word document '{filename}' could not be opened.",
-            "Try saving the file as a .docx format in Microsoft Word or Google Docs and upload again."
-        )
-    return (
-        f"The file '{filename}' could not be read ({ext.upper()} format).",
-        "Try converting the file to PDF or DOCX format and uploading again. If the problem continues, contact your administrator."
-    )
-
-
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def candidate_key(r: dict) -> str:
     return r.get("filename") or r.get("name") or str(r.get("rank", ""))
 
-
 def band(score: int):
     if score >= 85: return "strong",   "#E3F1FA", "#005A91", "#0075BC"
     if score >= 65: return "possible", "#FEF0DC", "#C76A0A", "#F7941D"
     return "weak", "#FDE7DE", "#C23A18", "#F15A29"
-
 
 def get_api_key() -> str:
     key = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -91,10 +187,10 @@ def get_api_key() -> str:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not set on server.")
     return key
 
-
 # ── Prompt ─────────────────────────────────────────────────────────────────────
 
-def build_prompt(jd: str, competencies: str, cvs: dict, calibration: list, past_examples: list = None) -> str:
+def build_prompt(jd: str, competencies: str, cvs: dict, calibration: list,
+                 past_examples: list = None) -> str:
     cv_block = "".join(
         f"\n---\nCV #{i} – {name}\n{text}\n"
         for i, (name, text) in enumerate(cvs.items(), 1)
@@ -102,25 +198,43 @@ def build_prompt(jd: str, competencies: str, cvs: dict, calibration: list, past_
     calibration_block = ""
     if calibration:
         calibration_block = (
-            "\n## Reviewer Calibration (apply these preferences to your scoring)\n"
+            "\n## Reviewer Calibration Notes\n"
+            "Use these organisational preferences when scoring.\n"
             + "\n".join(f"- {ex}" for ex in calibration[-10:]) + "\n"
         )
-    past_block = ""
+    examples_block = ""
     if past_examples:
-        rows = []
-        for ex in past_examples:
-            dec = ex.get("final_decision", "unknown")
+        lines = []
+        for ex in past_examples[:15]:
+            dec  = ex.get("final_decision", "").upper()
             score = ex.get("ai_score", "?")
-            name = ex.get("candidate_name", "unknown")
-            note = ex.get("recruiter_note", "")
-            rows.append(f"- {name}: AI score {score}, final decision: {dec}" + (f" — {note}" if note else ""))
-        past_block = (
+            name  = ex.get("candidate_name", "Candidate")
+            summ  = ex.get("summary", "")
+            note  = ex.get("recruiter_note", "")
+            line  = f"- {name} | AI score {score} → {dec}"
+            if summ: line += f" | {summ[:120]}"
+            if note: line += f" | Recruiter note: {note}"
+            lines.append(line)
+        examples_block = (
             "\n## Past Hiring Decisions for This Role (learn from these)\n"
-            "Use these past decisions to calibrate your scoring for this batch. "
-            "Understand what profiles were accepted or rejected and apply the same standards.\n"
-            + "\n".join(rows) + "\n"
+            "These are real recruiter decisions for the same role. Calibrate your scoring "
+            "so that candidates similar to SHORTLISTED examples score ≥65 and candidates "
+            "similar to REJECTED examples score <65.\n"
+            + "\n".join(lines) + "\n"
         )
     return f"""You are an expert HR screener for Quest Alliance, an NGO focused on youth skilling in India.
+
+## Screening Process — Two Levels
+This screening operates in two levels:
+
+LEVEL 1 — FILTER (automatic): Candidates with an overall match score below 30 are junk
+applications that do not meet minimum requirements and should not consume recruiter time.
+Set "filtered": true for these candidates. Provide only minimal details for filtered candidates.
+
+LEVEL 2 — RANK (for human review): Candidates scoring 30 or above are eligible and must be
+ranked carefully for recruiter decision-making. Within eligible candidates:
+  - Score 65–100: Strong/Possible match — recommend for shortlisting
+  - Score 30–64: Weak match — eligible but recruiter should review carefully before deciding
 
 ## Job Description
 {jd}
@@ -131,15 +245,16 @@ def build_prompt(jd: str, competencies: str, cvs: dict, calibration: list, past_
 ## Universal Scoring Factor (applies to ALL roles)
 Experience working with non-profit, NGO, social sector, or development organisations must be treated
 as a significant positive signal for every candidate, regardless of role. Candidates with such
-experience should score meaningfully higher (add 5-10 points to overall score compared to equivalent
-candidates without such experience). This applies across all competencies and roles.
-{calibration_block}{past_block}
+experience should score meaningfully higher (add 5-10 points to overall) than equally qualified
+candidates without it. Reflect this in the "strengths" array and factor it into competency scores.
+{calibration_block}{examples_block}
 ## Candidate CVs
 {cv_block}
 
 ## Task
-Review each candidate carefully and return a JSON array sorted best-to-worst. Each object MUST have:
-- "rank": integer from 1
+Review every candidate and return a JSON array sorted best-to-worst (highest overall score first,
+filtered candidates at the end). Each object MUST have:
+- "rank": integer from 1 (rank among ALL candidates including filtered)
 - "filename": CV filename exactly as given
 - "name": candidate's full name (extract from CV)
 - "role": their current/most recent role title
@@ -148,17 +263,17 @@ Review each candidate carefully and return a JSON array sorted best-to-worst. Ea
 - "email": email address if present, else ""
 - "phone": phone if present, else ""
 - "overall": integer 0-100 match score
-- "scores": array of 5 integers (one per competency, same order as competencies)
-- "competency_labels": array of 5 strings (the competency names scored)
-- "shortlisted": true if overall >= 65
-- "summary": 2-3 sentence AI summary of the candidate's fit
-- "strengths": array of 2-4 short strength strings
-- "gaps": array of 1-2 gap strings
-- "flag": a one-sentence thing to verify, or null
-- "evidence": array of 2-3 objects with "label" (competency name, uppercase) and "text" (direct quote or paraphrase from CV)
+- "filtered": true if overall < 30 (Level 1 filter — junk application), else false
+- "scores": array of 5 integers (one per competency) — empty array [] for filtered candidates
+- "competency_labels": array of 5 strings (competency names) — empty array [] for filtered candidates
+- "shortlisted": true if overall >= 65 AND filtered is false, else false
+- "summary": for eligible candidates: 2-3 sentence fit summary; for filtered: one sentence why they don't meet minimum requirements
+- "strengths": array of 2-4 short strings — empty [] for filtered candidates
+- "gaps": array of 1-3 gap strings (for filtered, list the critical missing requirements)
+- "flag": one-sentence verification note, or null
+- "evidence": array of 2-3 objects with "label" and "text" — empty [] for filtered candidates
 
 Return ONLY the JSON array, no markdown fences."""
-
 
 def extract_json(raw: str) -> list:
     cleaned = re.sub(r"^```[a-z]*\n?", "", raw.strip()).rstrip("` \n")
@@ -168,7 +283,6 @@ def extract_json(raw: str) -> list:
     if m:
         cleaned = m.group(0)
     return json.loads(cleaned)
-
 
 # ── PDF export ─────────────────────────────────────────────────────────────────
 
@@ -251,7 +365,6 @@ def generate_pdf(results: list, role_title: str = "") -> bytes:
     doc.build(story)
     return buf.getvalue()
 
-
 # ── Excel export ───────────────────────────────────────────────────────────────
 
 def generate_excel(results: list, role_title: str = "", history: dict = None, score_feedback: dict = None) -> bytes:
@@ -264,7 +377,7 @@ def generate_excel(results: list, role_title: str = "", history: dict = None, sc
 
     BLUE  = "FF0075BC"; GREEN = "FF1B6E2E"; RED = "FFC62828"
     AMBER = "FFE65100"; LGREY = "FFF4F7FA"; WHITE = "FFFFFFFF"; DARK = "FF1A1A2E"
-    COMP_HDR = "FF1565C0"  # blue header for competency columns
+    COMP_HDR = "FF1565C0"
 
     hdr_font  = Font(name="Calibri", bold=True, color=WHITE, size=11)
     hdr_fill  = PatternFill("solid", fgColor=DARK)
@@ -273,8 +386,8 @@ def generate_excel(results: list, role_title: str = "", history: dict = None, sc
     thin      = Side(style="thin", color="FFE4E9EF")
     border    = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    eligible  = [r for r in results if not r.get("filtered")]
-    filtered  = [r for r in results if r.get("filtered")]
+    eligible = [r for r in results if not r.get("filtered")]
+    filtered = [r for r in results if r.get("filtered")]
 
     # Derive competency labels from first eligible candidate that has them
     comp_labels = []
@@ -284,12 +397,12 @@ def generate_excel(results: list, role_title: str = "", history: dict = None, sc
             comp_labels = lbs
             break
 
-    def comp_score_color(sc):
+    def comp_color(sc):
         if sc >= 70: return GREEN
         if sc >= 40: return AMBER
         return RED
 
-    def score_band_color(sc):
+    def band_color(sc):
         if sc >= 65: return GREEN
         if sc >= 30: return AMBER
         return RED
@@ -298,34 +411,33 @@ def generate_excel(results: list, role_title: str = "", history: dict = None, sc
     ws = wb.active
     ws.title = "Screening Results"
 
-    # Title
     title_text = f"CV Screening Report — {role_title}" if role_title else "CV Screening Report"
     ws.append([title_text, "", "", "", "", "", f"Generated: {datetime.now().strftime('%d %B %Y')}"])
     ws["A1"].font = Font(name="Calibri", bold=True, size=14, color=BLUE)
     ws.merge_cells("A1:F1")
     ws["G1"].font = Font(name="Calibri", size=10, color="FF5E6675")
     ws["G1"].alignment = Alignment(horizontal="right")
-    ws.append([f"Eligible candidates: {len(eligible)}   |   Auto-filtered (below 30%): {len(filtered)}"])
+    ws.append([f"Eligible for review: {len(eligible)}   |   Auto-filtered (below 30%): {len(filtered)}"])
     ws["A2"].font = Font(name="Calibri", size=10, color="FF5E6675")
     ws.append([])
 
-    # Build column headers: fixed + one per competency + trailing
-    fixed_left  = ["Rank", "Name", "Current Role", "Yrs Exp", "Location", "Overall Score (/100)", "Band", "Status"]
-    fixed_right = ["Evidence from CV", "Strengths", "Gaps", "Fit Summary", "Flag / Verify", "Email", "Phone", "Filename"]
+    fixed_left  = ["Rank", "Name", "Current Role", "Yrs Exp", "Location",
+                   "Overall Score (/100)", "Band", "Status"]
+    fixed_right = ["Evidence from CV", "Strengths", "Gaps", "Fit Summary",
+                   "Flag / Verify", "Email", "Phone", "Filename"]
     columns = fixed_left + [f"{lb}\n(/100)" for lb in comp_labels] + fixed_right
 
     ws.append(columns)
     hdr_row = ws.max_row
-    for col_idx, col_name in enumerate(columns, 1):
-        cell = ws.cell(row=hdr_row, column=col_idx)
+    for col_idx, _ in enumerate(columns, 1):
         is_comp = len(fixed_left) < col_idx <= len(fixed_left) + len(comp_labels)
+        cell = ws.cell(row=hdr_row, column=col_idx)
         cell.font = hdr_font
         cell.fill = comp_fill if is_comp else hdr_fill
         cell.alignment = hdr_align
         cell.border = border
     ws.row_dimensions[hdr_row].height = 36
 
-    # Data rows
     for r in eligible + filtered:
         sc    = r.get("overall", 0)
         bname, _, _, _ = band(sc)
@@ -333,11 +445,10 @@ def generate_excel(results: list, role_title: str = "", history: dict = None, sc
         is_f  = r.get("filtered", False)
         status = "Auto-filtered" if is_f else ("Shortlisted" if sl is True else "Rejected" if sl is False else "Pending")
         scores = r.get("scores", [])
-
-        # Evidence: "Label: text" per item, newline-separated
-        evidence_parts = [f"{ev.get('label','')}: {ev.get('text','')}" for ev in r.get("evidence", []) if ev.get("text")]
-        evidence_text  = "\n".join(evidence_parts) if evidence_parts else ""
-
+        evidence_text = "\n".join(
+            f"{ev.get('label','')}: {ev.get('text','')}"
+            for ev in r.get("evidence", []) if ev.get("text")
+        )
         row_vals = (
             [r.get("rank",""), r.get("name", r.get("filename","")),
              r.get("role",""), r.get("years",""), r.get("location",""),
@@ -359,15 +470,15 @@ def generate_excel(results: list, role_title: str = "", history: dict = None, sc
                 cell.fill = PatternFill("solid", fgColor=LGREY)
 
         # Overall score: color-coded
-        score_cell = ws.cell(row=data_row, column=6)
-        score_cell.font = Font(name="Calibri", bold=True, color=WHITE, size=11)
-        score_cell.fill = PatternFill("solid", fgColor=score_band_color(sc))
-        score_cell.alignment = Alignment(horizontal="center", vertical="top")
+        sc_cell = ws.cell(row=data_row, column=6)
+        sc_cell.font = Font(name="Calibri", bold=True, color=WHITE, size=11)
+        sc_cell.fill = PatternFill("solid", fgColor=band_color(sc))
+        sc_cell.alignment = Alignment(horizontal="center", vertical="top")
 
         # Band cell
-        band_cell = ws.cell(row=data_row, column=7)
-        band_cell.font = Font(name="Calibri", bold=True, color=WHITE, size=10)
-        band_cell.fill = PatternFill("solid", fgColor=score_band_color(sc))
+        b_cell = ws.cell(row=data_row, column=7)
+        b_cell.font = Font(name="Calibri", bold=True, color=WHITE, size=10)
+        b_cell.fill = PatternFill("solid", fgColor=band_color(sc))
 
         # Status cell
         st_cell = ws.cell(row=data_row, column=8)
@@ -380,23 +491,20 @@ def generate_excel(results: list, role_title: str = "", history: dict = None, sc
         elif is_f:
             st_cell.font = Font(name="Calibri", italic=True, color="FF888888")
 
-        # Competency score cells: color each individually
-        for i, _ in enumerate(comp_labels):
+        # Competency score cells: individually color-coded
+        for i in range(len(comp_labels)):
             col_idx = len(fixed_left) + 1 + i
             cell = ws.cell(row=data_row, column=col_idx)
             if isinstance(cell.value, int):
                 cell.font = Font(name="Calibri", bold=True, color=WHITE, size=10)
-                cell.fill = PatternFill("solid", fgColor=comp_score_color(cell.value))
+                cell.fill = PatternFill("solid", fgColor=comp_color(cell.value))
                 cell.alignment = Alignment(horizontal="center", vertical="top")
 
-    # Column widths
     left_widths  = [5, 22, 22, 8, 16, 10, 10, 12]
     comp_widths  = [14] * len(comp_labels)
     right_widths = [45, 35, 28, 55, 30, 22, 14, 24]
-    all_widths   = left_widths + comp_widths + right_widths
-    for i, w in enumerate(all_widths, 1):
+    for i, w in enumerate(left_widths + comp_widths + right_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
-
     ws.freeze_panes = f"A{hdr_row+1}"
 
     # ── Sheet 2: Evidence Detail ────────────────────────────────────────────────
@@ -404,227 +512,92 @@ def generate_excel(results: list, role_title: str = "", history: dict = None, sc
     ws2.append([title_text, "", "", f"Generated: {datetime.now().strftime('%d %B %Y')}"])
     ws2["A1"].font = Font(name="Calibri", bold=True, size=13, color=BLUE)
     ws2.merge_cells("A1:C1")
-    ws2.append(["This sheet shows the specific CV evidence that supports each candidate's score."])
+    ws2.append(["Verbatim CV evidence supporting each candidate's score — for hiring manager review."])
     ws2["A2"].font = Font(name="Calibri", size=10, color="FF5E6675")
     ws2.append([])
 
     ev_cols = ["Candidate", "Overall Score", "Status", "Evidence Label", "Evidence from CV", "Strengths", "Gaps"]
     ws2.append(ev_cols)
-    ev_hdr_row = ws2.max_row
+    ev_hdr = ws2.max_row
     for col_idx in range(1, len(ev_cols)+1):
-        cell = ws2.cell(row=ev_hdr_row, column=col_idx)
+        cell = ws2.cell(row=ev_hdr, column=col_idx)
         cell.font = hdr_font; cell.fill = hdr_fill
         cell.alignment = hdr_align; cell.border = border
-    ws2.row_dimensions[ev_hdr_row].height = 22
+    ws2.row_dimensions[ev_hdr].height = 22
 
-    row_num = ev_hdr_row
     for r in eligible:
         sc   = r.get("overall", 0)
         sl   = r.get("shortlisted")
         name = r.get("name", r.get("filename",""))
         status = "Shortlisted" if sl is True else "Rejected" if sl is False else "Pending"
-        evidence = r.get("evidence", [])
+        evidence  = r.get("evidence", [])
         strengths = "; ".join(r.get("strengths", []))
         gaps      = "; ".join(r.get("gaps", []))
-
-        if not evidence:
-            ws2.append([name, sc, status, "—", r.get("summary",""), strengths, gaps])
-            row_num += 1
-        else:
-            for i, ev in enumerate(evidence):
-                ws2.append([
-                    name if i == 0 else "",
-                    sc   if i == 0 else "",
-                    status if i == 0 else "",
-                    ev.get("label",""),
-                    ev.get("text",""),
-                    strengths if i == 0 else "",
-                    gaps      if i == 0 else "",
-                ])
-                row_num += 1
-
-        for col_idx in range(1, len(ev_cols)+1):
-            for rr in range(ev_hdr_row+1, row_num+1):
-                cell = ws2.cell(row=rr, column=col_idx)
+        items = evidence if evidence else [{"label": "Summary", "text": r.get("summary","")}]
+        for i, ev in enumerate(items):
+            ws2.append([
+                name      if i == 0 else "",
+                sc        if i == 0 else "",
+                status    if i == 0 else "",
+                ev.get("label",""),
+                ev.get("text",""),
+                strengths if i == 0 else "",
+                gaps      if i == 0 else "",
+            ])
+            row_idx = ws2.max_row
+            for col_idx in range(1, len(ev_cols)+1):
+                cell = ws2.cell(row=row_idx, column=col_idx)
                 cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
                 cell.border = border
 
-    ws2.column_dimensions["A"].width = 22
-    ws2.column_dimensions["B"].width = 8
-    ws2.column_dimensions["C"].width = 12
-    ws2.column_dimensions["D"].width = 22
-    ws2.column_dimensions["E"].width = 60
-    ws2.column_dimensions["F"].width = 35
-    ws2.column_dimensions["G"].width = 28
-    ws2.freeze_panes = f"A{ev_hdr_row+1}"
+    for col, w in zip(["A","B","C","D","E","F","G"], [22, 8, 12, 22, 60, 35, 28]):
+        ws2.column_dimensions[col].width = w
+    ws2.freeze_panes = f"A{ev_hdr+1}"
+
+    # ── Sheet 3: Status History ─────────────────────────────────────────────────
+    if history:
+        wh = wb.create_sheet("Status History")
+        wh.append(["Candidate", "Action", "Timestamp"])
+        for col_idx in range(1, 4):
+            cell = wh.cell(row=1, column=col_idx)
+            cell.font = hdr_font; cell.fill = hdr_fill; cell.alignment = hdr_align
+        for e in sorted([e for v in history.values() for e in v], key=lambda e: e["ts"], reverse=True):
+            wh.append([e.get("name",""), e.get("action","").capitalize(), e.get("ts","")])
+            row_idx = wh.max_row
+            for col_idx in range(1, 4):
+                wh.cell(row=row_idx, column=col_idx).alignment = Alignment(horizontal="left", vertical="center")
+                wh.cell(row=row_idx, column=col_idx).border = border
+        for col, w in zip(["A","B","C"], [24, 16, 22]):
+            wh.column_dimensions[col].width = w
+        wh.freeze_panes = "A2"
 
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
 
-
-# ── Auth routes ────────────────────────────────────────────────────────────────
-
-class LoginBody(BaseModel):
-    username: str
-    password: str
-
-
-@app.post("/api/auth/login")
-def login(body: LoginBody, response: Response):
-    user = _auth.login_user(body.username, body.password)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-    token = _auth.make_token(user["username"], user["role"])
-    response.set_cookie("qs_token", token, httponly=True, samesite="lax", secure=False, max_age=43200)
-    return {"username": user["username"], "role": user["role"]}
-
-
-@app.post("/api/auth/logout")
-def logout(response: Response):
-    response.delete_cookie("qs_token")
-    return {"ok": True}
-
-
-@app.get("/api/auth/me")
-def me(user: dict = Depends(_auth.get_current_user)):
-    return {"username": user["username"], "role": user["role"]}
-
-
-# ── Admin: Users ───────────────────────────────────────────────────────────────
-
-class CreateUserBody(BaseModel):
-    username: str
-    email: str = ""
-    password: str
-    role: str = "recruiter"
-
-
-class UpdateUserBody(BaseModel):
-    role: Optional[str] = None
-    active: Optional[bool] = None
-    password: Optional[str] = None
-
-
-@app.get("/api/admin/users")
-def admin_list_users(admin: dict = Depends(_auth.require_admin)):
-    return _auth.list_users()
-
-
-@app.post("/api/admin/users")
-def admin_create_user(body: CreateUserBody, admin: dict = Depends(_auth.require_admin)):
-    uid = _auth.create_user(body.username, body.email, body.password, body.role)
-    return {"id": uid}
-
-
-@app.patch("/api/admin/users/{uid}")
-def admin_update_user(uid: int, body: UpdateUserBody, admin: dict = Depends(_auth.require_admin)):
-    fields = {k: v for k, v in body.dict().items() if v is not None}
-    if fields:
-        _auth.update_user(uid, **fields)
-    return {"ok": True}
-
-
-@app.delete("/api/admin/users/{uid}")
-def admin_delete_user(uid: int, admin: dict = Depends(_auth.require_admin)):
-    _auth.delete_user(uid)
-    return {"ok": True}
-
-
-# ── Admin: Error log ───────────────────────────────────────────────────────────
-
-@app.get("/api/admin/errors")
-def admin_get_errors(admin: dict = Depends(_auth.require_admin)):
-    errors = _auth.get_upload_errors()
-    for e in errors:
-        if e.get("timestamp"):
-            e["timestamp"] = e["timestamp"].isoformat()
-    return errors
-
-
-@app.patch("/api/admin/errors/{error_id}")
-def admin_update_error(error_id: int, body: dict, admin: dict = Depends(_auth.require_admin)):
-    status = body.get("status", "resolved")
-    _auth.update_error_status(error_id, status)
-    return {"ok": True}
-
-
-# ── Calibration routes ─────────────────────────────────────────────────────────
-
-class CalibBody(BaseModel):
-    note: str
-    jd_hash: Optional[str] = None
-
-
-@app.get("/api/calibration")
-def get_calibration(jd_hash: Optional[str] = None, user: dict = Depends(_auth.get_current_user)):
-    return _auth.get_calibration_notes(jd_hash)
-
-
-@app.post("/api/calibration")
-def add_calibration(body: CalibBody, user: dict = Depends(_auth.get_current_user)):
-    nid = _auth.add_calibration_note(body.note, user["username"], body.jd_hash)
-    return {"id": nid}
-
-
-@app.delete("/api/calibration/{note_id}")
-def delete_calibration(note_id: int, user: dict = Depends(_auth.get_current_user)):
-    _auth.delete_calibration_note(note_id)
-    return {"ok": True}
-
-
-# ── Feedback / AI learning routes ──────────────────────────────────────────────
-
-class FeedbackBody(BaseModel):
-    role_title: str
-    examples: list
-
-
-@app.post("/api/feedback")
-def save_feedback(body: FeedbackBody, user: dict = Depends(_auth.get_current_user)):
-    _auth.save_screening_examples(body.role_title, body.examples, user["username"])
-    return {"ok": True, "saved": len(body.examples)}
-
-
-@app.get("/api/feedback/{role_title}")
-def get_feedback(role_title: str, user: dict = Depends(_auth.get_current_user)):
-    examples = _auth.get_screening_examples(role_title)
-    for ex in examples:
-        if ex.get("created_at"):
-            ex["created_at"] = ex["created_at"].isoformat()
-    return examples
-
-
-# ── JD parse ───────────────────────────────────────────────────────────────────
+# ── API routes ─────────────────────────────────────────────────────────────────
 
 @app.post("/api/parse-jd")
-async def parse_jd(file: UploadFile = File(...), user: dict = Depends(_auth.get_current_user)):
+async def parse_jd(file: UploadFile = File(...), qs_token: Optional[str] = Cookie(default=None)):
+    user = _auth.get_current_user(qs_token)
     try:
         b = await file.read()
         text = parse_bytes(b, file.filename)
         return {"text": text}
     except Exception as e:
-        error_plain, fix_suggestion = plain_error_and_fix(file.filename, e)
+        error_plain, fix_suggestion = _plain_error(file.filename, e)
         ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "unknown"
         try:
-            _auth.log_upload_error(
-                filename=file.filename,
-                file_type=ext,
-                role_title="JD upload",
-                uploaded_by=user.get("username", "unknown"),
-                error_code=type(e).__name__,
-                error_plain=error_plain,
-                fix_suggestion=fix_suggestion,
-            )
+            _auth.log_upload_error(file.filename, ext, "JD upload", user["username"],
+                                   type(e).__name__, error_plain, fix_suggestion)
         except Exception:
             pass
         raise HTTPException(status_code=400, detail=error_plain)
 
 
-# ── Detect competencies ────────────────────────────────────────────────────────
-
 @app.post("/api/detect-competencies")
-async def detect_competencies(jd: str = Form(...), user: dict = Depends(_auth.get_current_user)):
+async def detect_competencies(jd: str = Form(...), qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
     client = anthropic.Anthropic(api_key=get_api_key())
     msg = client.messages.create(
         model="claude-opus-4-8", max_tokens=300,
@@ -637,8 +610,6 @@ async def detect_competencies(jd: str = Form(...), user: dict = Depends(_auth.ge
     return {"competencies": json.loads(raw)}
 
 
-# ── Screen CVs ─────────────────────────────────────────────────────────────────
-
 @app.post("/api/screen")
 async def screen(
     jd: str = Form(...),
@@ -646,38 +617,27 @@ async def screen(
     calibration: str = Form("[]"),
     role_title: str = Form(""),
     files: List[UploadFile] = File(...),
-    user: dict = Depends(_auth.get_current_user),
+    qs_token: Optional[str] = Cookie(default=None),
 ):
+    user = _auth.get_current_user(qs_token)
     cvs = {}
     for f in files:
         try:
             cvs[f.filename] = parse_bytes(await f.read(), f.filename)
         except Exception as e:
-            error_plain, fix_suggestion = plain_error_and_fix(f.filename, e)
+            error_plain, fix_suggestion = _plain_error(f.filename, e)
             ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else "unknown"
             try:
-                _auth.log_upload_error(
-                    filename=f.filename,
-                    file_type=ext,
-                    role_title=role_title or "unknown",
-                    uploaded_by=user.get("username", "unknown"),
-                    error_code=type(e).__name__,
-                    error_plain=error_plain,
-                    fix_suggestion=fix_suggestion,
-                )
+                _auth.log_upload_error(f.filename, ext, role_title or "unknown",
+                                       user["username"], type(e).__name__, error_plain, fix_suggestion)
             except Exception:
                 pass
             raise HTTPException(status_code=400, detail=error_plain)
 
-    past_examples = []
-    if role_title and os.environ.get("DATABASE_URL"):
-        try:
-            past_examples = _auth.get_screening_examples(role_title)
-        except Exception:
-            pass
+    calib = json.loads(calibration)
+    past_examples = _auth.get_screening_examples(role_title) if role_title else []
 
     client = anthropic.Anthropic(api_key=get_api_key())
-    calib = json.loads(calibration)
     msg = client.messages.create(
         model="claude-opus-4-8", max_tokens=16000,
         messages=[{"role": "user", "content": build_prompt(jd, competencies, cvs, calib, past_examples)}]
@@ -693,7 +653,43 @@ async def screen(
     return {"results": results, "truncated": truncated, "past_examples_used": len(past_examples)}
 
 
-# ── Export ─────────────────────────────────────────────────────────────────────
+# ── Feedback / learning routes ─────────────────────────────────────────────────
+
+class FeedbackExample(BaseModel):
+    candidate_name: str
+    ai_score: int
+    final_decision: str   # "shortlisted" or "rejected"
+    summary: str = ""
+    strengths: str = ""
+    gaps: str = ""
+    recruiter_note: str = ""
+
+class FeedbackBody(BaseModel):
+    role_title: str
+    examples: List[FeedbackExample]
+
+@app.post("/api/feedback")
+async def save_feedback(body: FeedbackBody, qs_token: Optional[str] = Cookie(default=None)):
+    user = _auth.get_current_user(qs_token)
+    if not body.role_title.strip():
+        raise HTTPException(status_code=400, detail="role_title is required to save learning examples")
+    _auth.save_screening_examples(
+        body.role_title,
+        [ex.model_dump() for ex in body.examples],
+        user["username"],
+    )
+    return {"saved": len(body.examples), "role_title": body.role_title}
+
+@app.get("/api/feedback/roles")
+async def feedback_roles(qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
+    return _auth.list_example_roles()
+
+@app.get("/api/feedback/{role_title}")
+async def feedback_for_role(role_title: str, qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
+    return _auth.get_screening_examples(role_title)
+
 
 class ExportBody(BaseModel):
     results: list
@@ -703,7 +699,8 @@ class ExportBody(BaseModel):
 
 
 @app.post("/api/export/pdf")
-async def export_pdf(body: ExportBody, user: dict = Depends(_auth.get_current_user)):
+async def export_pdf(body: ExportBody, qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
     pdf = generate_pdf(body.results, body.role_title)
     filename = f"CV_Screening_{datetime.now().strftime('%Y-%m-%d')}.pdf"
     return Response(
@@ -714,7 +711,8 @@ async def export_pdf(body: ExportBody, user: dict = Depends(_auth.get_current_us
 
 
 @app.post("/api/export/excel")
-async def export_excel(body: ExportBody, user: dict = Depends(_auth.get_current_user)):
+async def export_excel(body: ExportBody, qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
     xlsx = generate_excel(body.results, body.role_title, body.history, body.score_feedback)
     filename = f"CV_Screening_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
     return Response(
@@ -724,9 +722,215 @@ async def export_excel(body: ExportBody, user: dict = Depends(_auth.get_current_
     )
 
 
+# ── Zoho Recruit integration ───────────────────────────────────────────────────
+
+def get_zoho_access_token() -> str:
+    accounts_url = os.environ.get("ZOHO_ACCOUNTS_URL", "https://accounts.zoho.in")
+    r = __import__("requests").post(
+        f"{accounts_url}/oauth/v2/token",
+        data={
+            "grant_type": "refresh_token",
+            "client_id":     os.environ.get("ZOHO_CLIENT_ID", ""),
+            "client_secret": os.environ.get("ZOHO_CLIENT_SECRET", ""),
+            "refresh_token": os.environ.get("ZOHO_REFRESH_TOKEN", ""),
+        },
+        timeout=30,
+    )
+    if not r.ok:
+        raise HTTPException(status_code=502, detail=f"Zoho auth failed: {r.text[:200]}")
+    data = r.json()
+    if "access_token" not in data:
+        raise HTTPException(status_code=502, detail=f"Zoho token missing: {data}")
+    return data["access_token"]
+
+
+@app.get("/api/zoho/debug-candidate")
+async def zoho_debug_candidate(
+    id: str = "",
+    qs_token: Optional[str] = Cookie(default=None),
+):
+    """Return raw Zoho fields for one candidate ID — for debugging only."""
+    _auth.require_admin(qs_token=qs_token)
+    recruit_url = os.environ.get("ZOHO_RECRUIT_URL", "https://recruit.zoho.in")
+    token = get_zoho_access_token()
+    headers = {"Authorization": f"Zoho-oauthtoken {token}", "Accept": "application/json"}
+    import requests as _req
+    # Try COQL to join candidates with job openings
+    query = f"SELECT id, Full_Name, Posting_Title FROM Candidates WHERE id = {id}"
+    resp = _req.post(f"{recruit_url}/recruit/v2/coql", headers=headers,
+                     json={"select_query": query}, timeout=20)
+    return {"coql": {"status": resp.status_code, "body": resp.json() if resp.ok else resp.text[:400]}}
+
+
+@app.get("/api/zoho/candidate-roles")
+async def zoho_candidate_roles(
+    ids: str = "",
+    qs_token: Optional[str] = Cookie(default=None),
+):
+    """Given comma-separated Zoho candidate IDs, return {id: posting_title}."""
+    _auth.get_current_user(qs_token)
+    if not ids.strip():
+        return {}
+    id_list = [i.strip() for i in ids.split(",") if i.strip()]
+    if not id_list:
+        return {}
+
+    recruit_url = os.environ.get("ZOHO_RECRUIT_URL", "https://recruit.zoho.in")
+    token = get_zoho_access_token()
+    headers = {"Authorization": f"Zoho-oauthtoken {token}", "Accept": "application/json"}
+
+    mapping = {}
+    import requests as _req
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def fetch_one(cid):
+        resp = _req.get(
+            f"{recruit_url}/recruit/v2/Submissions/search",
+            headers=headers,
+            params={"criteria": f"(Candidate_Id:equals:{cid})", "fields": "Posting_Title", "per_page": 1},
+            timeout=20,
+        )
+        if not resp.ok or resp.status_code == 204:
+            return cid, ""
+        data = resp.json().get("data", [])
+        if data:
+            return cid, data[0].get("Posting_Title") or ""
+        return cid, ""
+
+    with ThreadPoolExecutor(max_workers=10) as ex:
+        futures = {ex.submit(fetch_one, cid): cid for cid in id_list}
+        for fut in as_completed(futures):
+            cid, title = fut.result()
+            if title:
+                mapping[cid] = title
+    return mapping
+
+
+# ── Google Drive integration ───────────────────────────────────────────────────
+
+def get_drive_service():
+    sa_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+    if not sa_json:
+        raise HTTPException(status_code=500, detail="GOOGLE_SERVICE_ACCOUNT_JSON not configured on server.")
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+    info = json.loads(sa_json)
+    creds = service_account.Credentials.from_service_account_info(
+        info, scopes=["https://www.googleapis.com/auth/drive.readonly"]
+    )
+    return build("drive", "v3", credentials=creds, cache_discovery=False)
+
+
+@app.get("/api/drive/files")
+async def drive_list_files(
+    from_date: str = "",
+    to_date: str = "",
+    qs_token: Optional[str] = Cookie(default=None),
+):
+    _auth.get_current_user(qs_token)
+    folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
+    if not folder_id:
+        raise HTTPException(status_code=500, detail="GOOGLE_DRIVE_FOLDER_ID not configured on server.")
+
+    # Defaults: last 7 days (generous window covers timezone offsets and weekends)
+    today = datetime.now(timezone.utc).date()
+    if not from_date:
+        from_date = (today - timedelta(days=7)).isoformat()
+    if not to_date:
+        to_date = today.isoformat()
+
+    # Drive RFC 3339 timestamps — use start of from_date and end of to_date in UTC
+    from_ts = f"{from_date}T00:00:00Z"
+    to_ts   = f"{to_date}T23:59:59Z"
+
+    service = get_drive_service()
+    q = (
+        f"'{folder_id}' in parents"
+        f" and createdTime >= '{from_ts}'"
+        f" and createdTime <= '{to_ts}'"
+        f" and trashed = false"
+        f" and (mimeType='application/pdf'"
+        f" or mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document'"
+        f" or mimeType='application/msword'"
+        f" or mimeType='text/plain'"
+        f" or mimeType='application/rtf'"
+        f" or mimeType='application/vnd.oasis.opendocument.text')"
+    )
+    results = service.files().list(
+        q=q,
+        fields="files(id,name,createdTime,size,mimeType)",
+        orderBy="createdTime desc",
+        pageSize=500,
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True,
+    ).execute()
+    files = results.get("files", [])
+    return {"files": files, "from_date": from_date, "to_date": to_date, "count": len(files)}
+
+
+class DriveScreenBody(BaseModel):
+    jd: str
+    competencies: str = ""
+    calibration: list = []
+    role_title: str = ""
+    file_ids: List[str]
+
+
+@app.post("/api/drive/screen")
+async def drive_screen(body: DriveScreenBody, qs_token: Optional[str] = Cookie(default=None)):
+    user = _auth.get_current_user(qs_token)
+    folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
+    if not folder_id:
+        raise HTTPException(status_code=500, detail="GOOGLE_DRIVE_FOLDER_ID not configured on server.")
+
+    service = get_drive_service()
+    from googleapiclient.http import MediaIoBaseDownload
+
+    cvs = {}
+    for fid in body.file_ids:
+        meta = service.files().get(fileId=fid, fields="id,name,mimeType").execute()
+        fname = meta.get("name", fid)
+        buf = io.BytesIO()
+        request = service.files().get_media(fileId=fid)
+        downloader = MediaIoBaseDownload(buf, request)
+        done = False
+        while not done:
+            _, done = downloader.next_chunk()
+        try:
+            cvs[fname] = parse_bytes(buf.getvalue(), fname)
+        except Exception as e:
+            error_plain, fix_suggestion = _plain_error(fname, e)
+            ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else "unknown"
+            try:
+                _auth.log_upload_error(fname, ext, body.role_title or "Drive import",
+                                       user["username"], type(e).__name__, error_plain, fix_suggestion)
+            except Exception:
+                pass
+
+    if not cvs:
+        raise HTTPException(status_code=400, detail="No files could be read from Drive.")
+
+    past_examples = _auth.get_screening_examples(body.role_title) if body.role_title else []
+    client = anthropic.Anthropic(api_key=get_api_key())
+    msg = client.messages.create(
+        model="claude-opus-4-8", max_tokens=16000,
+        messages=[{"role": "user", "content": build_prompt(
+            body.jd, body.competencies, cvs, body.calibration, past_examples
+        )}]
+    )
+    truncated = msg.stop_reason == "max_tokens"
+    raw = msg.content[0].text if msg.content else ""
+    if not raw:
+        raise HTTPException(status_code=502, detail="Claude returned an empty response.")
+    try:
+        results = extract_json(raw)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not parse Claude response: {e}\n\n{raw[:500]}")
+    return {"results": results, "truncated": truncated, "past_examples_used": len(past_examples)}
+
+
 # ── Serve frontend ─────────────────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
 
 @app.get("/")
 async def root():
