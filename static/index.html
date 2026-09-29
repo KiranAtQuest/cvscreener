@@ -313,9 +313,18 @@ textarea { min-height: 140px; line-height: 1.5; }
 
 /* ── Results screen ───────────────────────────────────────────── */
 .results-header {
-  display: flex; align-items: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 16px; margin-bottom: 8px; flex-wrap: wrap;
 }
 .results-header h1 { font-size: 20px; font-weight: 700; flex: 1; }
+#results-context {
+  margin-bottom: 20px; padding: 12px 16px; background: var(--blue-bg);
+  border-left: 3px solid var(--blue); border-radius: 0 8px 8px 0; display: none;
+}
+#results-context .rc-role { font-size: 15px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+#results-context .rc-jd { font-size: 12px; color: var(--grey); white-space: pre-wrap; line-height: 1.5;
+  max-height: 80px; overflow: hidden; position: relative; }
+#results-context .rc-jd.expanded { max-height: none; }
+#results-context .rc-toggle { font-size: 11px; color: var(--blue); cursor: pointer; margin-top: 4px; display: inline-block; }
 .results-stats { display: flex; gap: 12px; flex-wrap: wrap; }
 .stat-pill {
   padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
@@ -774,6 +783,11 @@ textarea { min-height: 140px; line-height: 1.5; }
         <div class="stat-pill red"   id="stat-filtered"></div>
       </div>
     </div>
+    <div id="results-context">
+      <div class="rc-role" id="rc-role"></div>
+      <div class="rc-jd" id="rc-jd"></div>
+      <span class="rc-toggle" id="rc-toggle" onclick="toggleJdExpand()" style="display:none">Show more ▾</span>
+    </div>
     <div class="learning-banner" id="learning-banner" style="display:none"></div>
     <div class="truncate-banner" id="truncate-banner" style="display:none">
       ⚠ Claude's response was truncated (token limit reached). Some candidates may be missing — try screening in smaller batches.
@@ -1109,6 +1123,7 @@ let state = {
   files: [],          // File objects
   calibration: [],
   currentJdHash: "",
+  currentJd: "",
   roleTitle: "",
   results: [],
   truncated: false,
@@ -1547,7 +1562,9 @@ async function runDriveScreen(jd) {
   if (driveSelectedIds.length === 0) {
     showToast("Load files from Drive first."); return;
   }
-  state.roleTitle = document.getElementById("role-title").value.trim();
+  const selectedRole = document.getElementById('drive-role-select').value;
+  state.roleTitle = selectedRole || document.getElementById("role-title").value.trim();
+  state.currentJd = jd;
   state.currentJdHash = jdHash(jd);
   state.decisions = {};
 
@@ -1644,6 +1661,7 @@ async function runScreen() {
   if (state.files.length === 0) { showToast("Please upload at least one CV."); return; }
 
   state.roleTitle = document.getElementById("role-title").value.trim();
+  state.currentJd = jd;
   state.currentJdHash = jdHash(jd);
   state.decisions = {};
 
@@ -1737,9 +1755,34 @@ function getDecision(r) {
   return state.decisions[k]?.shortlisted;   // true | false | null/undefined
 }
 
+function toggleJdExpand() {
+  const el = document.getElementById('rc-jd');
+  const btn = document.getElementById('rc-toggle');
+  const expanded = el.classList.toggle('expanded');
+  btn.textContent = expanded ? 'Show less ▴' : 'Show more ▾';
+}
+
 function renderResults() {
   const title = document.getElementById("results-title");
   title.textContent = state.roleTitle ? `Results — ${state.roleTitle}` : "Screening Results";
+
+  // Populate screening context panel
+  const ctx = document.getElementById('results-context');
+  const rcRole = document.getElementById('rc-role');
+  const rcJd = document.getElementById('rc-jd');
+  const rcToggle = document.getElementById('rc-toggle');
+  if (state.roleTitle || state.currentJd) {
+    rcRole.textContent = state.roleTitle ? `📋 Role: ${state.roleTitle}` : '';
+    const jdText = state.currentJd || '';
+    const isRoleFallback = jdText.startsWith('Role: ') || jdText.startsWith('General screening');
+    rcJd.textContent = isRoleFallback ? 'Screened using role name only (no JD pasted).' : jdText;
+    rcJd.classList.remove('expanded');
+    rcToggle.style.display = (!isRoleFallback && jdText.length > 200) ? '' : 'none';
+    rcToggle.textContent = 'Show more ▾';
+    ctx.style.display = '';
+  } else {
+    ctx.style.display = 'none';
+  }
 
   const eligible = state.results.filter(r => !r.filtered);
   const filtered = state.results.filter(r => r.filtered);
