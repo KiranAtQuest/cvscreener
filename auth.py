@@ -82,6 +82,15 @@ def init_db():
                     status TEXT DEFAULT 'needs-action'
                 )
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS saved_jds (
+                    id SERIAL PRIMARY KEY,
+                    role_title TEXT NOT NULL,
+                    jd_text TEXT NOT NULL,
+                    created_by TEXT,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
             # Seed default admin
             cur.execute("SELECT id FROM users WHERE username = 'admin'")
             if not cur.fetchone():
@@ -269,3 +278,30 @@ def update_error_status(error_id: int, status: str):
     with _conn() as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE upload_errors SET status=%s WHERE id=%s", (status, error_id))
+
+
+# ── Saved JDs ──────────────────────────────────────────────────────────────────
+
+def save_jd(role_title: str, jd_text: str, username: str):
+    with _conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO saved_jds (role_title, jd_text, created_by)
+                VALUES (%s, %s, %s) RETURNING id
+            """, (role_title, jd_text, username))
+            return cur.fetchone()["id"]
+
+def list_jds(limit: int = 20):
+    with _conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, role_title, jd_text, created_by,
+                       to_char(created_at AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY') AS date
+                FROM saved_jds ORDER BY created_at DESC LIMIT %s
+            """, (limit,))
+            return [dict(r) for r in cur.fetchall()]
+
+def delete_jd(jd_id: int):
+    with _conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM saved_jds WHERE id=%s", (jd_id,))

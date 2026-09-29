@@ -577,6 +577,27 @@ def generate_excel(results: list, role_title: str = "", history: dict = None, sc
 
 # ── API routes ─────────────────────────────────────────────────────────────────
 
+@app.get("/api/jds")
+async def list_jds(qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
+    return {"jds": _auth.list_jds()}
+
+class SaveJdBody(BaseModel):
+    role_title: str
+    jd_text: str
+
+@app.post("/api/jds")
+async def save_jd(body: SaveJdBody, qs_token: Optional[str] = Cookie(default=None)):
+    user = _auth.get_current_user(qs_token)
+    jd_id = _auth.save_jd(body.role_title.strip(), body.jd_text.strip(), user["username"])
+    return {"id": jd_id}
+
+@app.delete("/api/jds/{jd_id}")
+async def delete_jd(jd_id: int, qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
+    _auth.delete_jd(jd_id)
+    return {"ok": True}
+
 @app.post("/api/parse-jd")
 async def parse_jd(file: UploadFile = File(...), qs_token: Optional[str] = Cookie(default=None)):
     user = _auth.get_current_user(qs_token)

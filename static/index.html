@@ -268,6 +268,19 @@ textarea { min-height: 140px; line-height: 1.5; }
 .role-row label { margin: 0; flex-shrink: 0; }
 
 /* Calibration */
+.past-jd-item {
+  display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px;
+  background: var(--light); border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+  transition: border-color .15s;
+}
+.past-jd-item:hover { border-color: var(--blue); }
+.past-jd-item.selected { border-color: var(--blue); background: var(--blue-bg); }
+.pji-body { flex: 1; min-width: 0; }
+.pji-role { font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 2px; }
+.pji-date { font-size: 11px; color: var(--grey); margin-bottom: 4px; }
+.pji-preview { font-size: 12px; color: var(--grey); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pji-del { background: none; border: none; color: var(--grey); cursor: pointer; font-size: 14px; flex-shrink: 0; padding: 2px 4px; }
+.pji-del:hover { color: #c00; }
 .calib-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; max-height: 180px; overflow-y: auto; }
 .calib-item {
   display: flex; align-items: flex-start; gap: 8px; padding: 7px 10px;
@@ -656,42 +669,6 @@ textarea { min-height: 140px; line-height: 1.5; }
   <main>
     <div class="setup-grid">
 
-      <!-- JD card -->
-      <div class="card">
-        <h2>Job Description</h2>
-        <div class="card-sub">Paste the JD below, or upload a PDF / DOCX file.</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <label for="jd-input" style="margin:0">Job Description</label>
-          <label class="btn-sm outline" style="cursor:pointer;font-size:12px;padding:5px 12px;margin:0">
-            ⬆ Upload JD
-            <input type="file" id="jd-file-input" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="uploadJD(event)">
-          </label>
-        </div>
-        <div id="jd-upload-status" style="font-size:12px;color:var(--grey);margin-bottom:6px;min-height:16px"></div>
-        <textarea id="jd-input" placeholder="Paste the job description here, or upload a file above…" rows="8" oninput="onJdChange()"></textarea>
-        <div style="margin-top:12px">
-          <label>Role Title (optional)</label>
-          <input type="text" id="role-title" placeholder="e.g. Programme Manager – Skilling">
-        </div>
-      </div>
-
-      <!-- Competencies card -->
-      <div class="card">
-        <h2>Skill Competencies</h2>
-        <div class="card-sub">Auto-detect from JD, then add or remove your own. Up to 8 competencies. NGO/non-profit experience is always included.</div>
-        <div class="chips" id="comp-chips"></div>
-        <div class="chip-input-row" id="comp-add-row">
-          <input type="text" id="comp-input" placeholder="Add a competency…" maxlength="60"
-            onkeydown="if(event.key==='Enter'){addCompetency();event.preventDefault()}">
-          <button class="btn-sm blue" onclick="addCompetency()">Add</button>
-        </div>
-        <div id="comp-limit-note" style="font-size:11px;color:var(--grey);margin-top:6px;display:none">Maximum 8 competencies reached.</div>
-        <button class="btn-sm outline detect-btn" id="detect-btn" onclick="detectCompetencies()" style="margin-top:10px">
-          ✨ Auto-detect from JD
-        </button>
-        <div class="detect-note" id="detect-note"></div>
-      </div>
-
       <!-- Upload card -->
       <div class="card">
         <h2>CV Files</h2>
@@ -749,6 +726,53 @@ textarea { min-height: 140px; line-height: 1.5; }
           <div id="drive-file-list" style="max-height:240px;overflow-y:auto;background:var(--light);border-radius:8px;border:1px solid var(--border);padding:8px;display:none"></div>
           <div class="err-msg" id="drive-err"></div>
         </div>
+      </div>
+
+      <!-- JD card -->
+      <div class="card">
+        <h2>Job Description</h2>
+        <div class="card-sub">Paste or upload a JD, or pick a previously used one below.</div>
+
+        <!-- Past JDs -->
+        <div id="past-jds-wrap" style="display:none;margin-bottom:16px">
+          <label style="font-size:12px;font-weight:600;color:var(--grey);display:block;margin-bottom:6px">Previously used JDs</label>
+          <div id="past-jds-list" style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto"></div>
+        </div>
+
+        <!-- Enter / upload -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <label for="jd-input" style="margin:0;font-size:13px;font-weight:600">Enter JD manually</label>
+          <label class="btn-sm outline" style="cursor:pointer;font-size:12px;padding:5px 12px;margin:0">
+            ⬆ Upload JD file
+            <input type="file" id="jd-file-input" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="uploadJD(event)">
+          </label>
+        </div>
+        <div id="jd-upload-status" style="font-size:12px;color:var(--grey);margin-bottom:6px;min-height:16px"></div>
+        <textarea id="jd-input" placeholder="Paste the job description here, or upload a file above…" rows="8" oninput="onJdChange()"></textarea>
+        <div style="margin-top:12px;display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:180px">
+            <label>Role Title <span style="font-weight:400;color:var(--grey)">(optional)</span></label>
+            <input type="text" id="role-title" placeholder="e.g. Programme Manager – Skilling">
+          </div>
+          <button class="btn-sm outline" onclick="saveCurrentJd()" style="margin-bottom:1px" title="Save this JD for future use">💾 Save JD</button>
+        </div>
+      </div>
+
+      <!-- Competencies card -->
+      <div class="card">
+        <h2>Skill Competencies</h2>
+        <div class="card-sub">Auto-detect from JD, then add or remove your own. Up to 8 competencies. NGO/non-profit experience is always included.</div>
+        <div class="chips" id="comp-chips"></div>
+        <div class="chip-input-row" id="comp-add-row">
+          <input type="text" id="comp-input" placeholder="Add a competency…" maxlength="60"
+            onkeydown="if(event.key==='Enter'){addCompetency();event.preventDefault()}">
+          <button class="btn-sm blue" onclick="addCompetency()">Add</button>
+        </div>
+        <div id="comp-limit-note" style="font-size:11px;color:var(--grey);margin-top:6px;display:none">Maximum 8 competencies reached.</div>
+        <button class="btn-sm outline detect-btn" id="detect-btn" onclick="detectCompetencies()" style="margin-top:10px">
+          ✨ Auto-detect from JD
+        </button>
+        <div class="detect-note" id="detect-note"></div>
       </div>
 
       <!-- Calibration card -->
@@ -915,6 +939,7 @@ async function doLogin() {
     document.getElementById("login-password").value = "";
     renderNav();
     await loadCalibration();
+    await loadPastJds();
     showScreen("setup");
   } catch(e) {
     err.textContent = "Network error. Please try again.";
@@ -1216,6 +1241,70 @@ function addCompetency() {
 function removeComp(i) {
   state.competencies.splice(i, 1);
   renderChips();
+}
+
+// ── Past JDs ────────────────────────────────────────────────────────────────────
+let savedJds = [];
+
+async function loadPastJds() {
+  try {
+    const res = await fetch('/api/jds');
+    if (!res.ok) return;
+    const data = await res.json();
+    savedJds = data.jds || [];
+    renderPastJds();
+  } catch(e) { /* non-critical */ }
+}
+
+function renderPastJds() {
+  const wrap = document.getElementById('past-jds-wrap');
+  const list = document.getElementById('past-jds-list');
+  if (!savedJds.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  list.innerHTML = savedJds.map(j => `
+    <div class="past-jd-item" id="pji-${j.id}" onclick="pickJd(${j.id})">
+      <div class="pji-body">
+        <div class="pji-role">${j.role_title || 'Untitled JD'}</div>
+        <div class="pji-date">Saved ${j.date} by ${j.created_by || '—'}</div>
+        <div class="pji-preview">${(j.jd_text || '').slice(0, 120).replace(/\n/g,' ')}…</div>
+      </div>
+      <button class="pji-del" onclick="deleteJd(event,${j.id})" title="Delete">✕</button>
+    </div>`).join('');
+}
+
+function pickJd(id) {
+  const j = savedJds.find(x => x.id === id);
+  if (!j) return;
+  document.getElementById('jd-input').value = j.jd_text;
+  if (j.role_title) document.getElementById('role-title').value = j.role_title;
+  document.querySelectorAll('.past-jd-item').forEach(el => el.classList.remove('selected'));
+  document.getElementById(`pji-${id}`)?.classList.add('selected');
+  onJdChange();
+  showToast('JD loaded.');
+}
+
+async function saveCurrentJd() {
+  const jd = document.getElementById('jd-input').value.trim();
+  const role = document.getElementById('role-title').value.trim();
+  if (!jd) { showToast('Please enter a job description first.'); return; }
+  try {
+    const res = await fetch('/api/jds', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ role_title: role || 'Untitled JD', jd_text: jd })
+    });
+    if (!res.ok) throw new Error();
+    showToast('JD saved.');
+    await loadPastJds();
+  } catch(e) { showToast('Could not save JD.'); }
+}
+
+async function deleteJd(e, id) {
+  e.stopPropagation();
+  try {
+    await fetch(`/api/jds/${id}`, { method: 'DELETE' });
+    savedJds = savedJds.filter(j => j.id !== id);
+    renderPastJds();
+  } catch(e) { showToast('Could not delete JD.'); }
 }
 
 async function uploadJD(e) {
@@ -2136,6 +2225,7 @@ renderCalib();
 renderFileList();
 driveDefaultDates();
 initAuth();
+// loadPastJds called after login succeeds
 </script>
 </body>
 </html>
