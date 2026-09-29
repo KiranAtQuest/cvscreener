@@ -688,18 +688,18 @@ textarea { min-height: 140px; line-height: 1.5; }
         <h2>CV Files</h2>
         <!-- Source tabs -->
         <div class="upload-tabs" style="display:flex;gap:0;margin-bottom:16px;border:1px solid var(--border);border-radius:8px;overflow:hidden">
-          <button class="upload-tab-btn active" id="tab-upload" onclick="switchUploadTab('upload')"
-            style="flex:1;padding:9px 0;font-size:13px;font-weight:600;border:none;cursor:pointer;background:#fff;color:var(--navy);border-right:1px solid var(--border);font-family:inherit">
+          <button class="upload-tab-btn" id="tab-upload" onclick="switchUploadTab('upload')"
+            style="flex:1;padding:9px 0;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--light);color:var(--grey);border-right:1px solid var(--border);font-family:inherit">
             📂 Upload Files
           </button>
-          <button class="upload-tab-btn" id="tab-drive" onclick="switchUploadTab('drive')"
-            style="flex:1;padding:9px 0;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--light);color:var(--grey);font-family:inherit">
+          <button class="upload-tab-btn active" id="tab-drive" onclick="switchUploadTab('drive')"
+            style="flex:1;padding:9px 0;font-size:13px;font-weight:600;border:none;cursor:pointer;background:#fff;color:var(--navy);font-family:inherit">
             ☁️ From Google Drive
           </button>
         </div>
 
         <!-- Upload pane -->
-        <div id="pane-upload">
+        <div id="pane-upload" style="display:none">
           <div class="card-sub" style="margin-bottom:10px">Upload PDF, DOCX or DOC files. Up to 500 CVs — large batches processed automatically.</div>
           <div class="dropzone" id="dropzone"
                ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event)">
@@ -714,7 +714,7 @@ textarea { min-height: 140px; line-height: 1.5; }
         </div>
 
         <!-- Drive pane -->
-        <div id="pane-drive" style="display:none">
+        <div id="pane-drive">
           <div class="card-sub" style="margin-bottom:12px">Pull CVs from the linked Google Drive folder. Default: last 2 days.</div>
           <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap">
             <div style="flex:1;min-width:130px">
@@ -1389,7 +1389,7 @@ function renderCalib() {
 }
 
 // ── Upload tab switching ────────────────────────────────────────────────────────
-let driveMode = false;
+let driveMode = true;
 let driveSelectedIds = []; // [{id, name}]
 
 function switchUploadTab(tab) {
@@ -1626,10 +1626,20 @@ async function runDriveScreen(jd) {
 }
 
 async function runScreen() {
-  const jd = document.getElementById("jd-input").value.trim();
-  if (!jd) { showToast("Please enter a job description."); return; }
+  let jd = document.getElementById("jd-input").value.trim();
 
-  if (driveMode) { await runDriveScreen(jd); return; }
+  if (driveMode) {
+    if (!driveSelectedIds.length) { showToast("Please load CVs from Google Drive first."); return; }
+    // JD is optional in Drive mode — fall back to the selected role name
+    if (!jd) {
+      const selectedRole = document.getElementById('drive-role-select').value;
+      jd = selectedRole ? `Role: ${selectedRole}` : "General screening — evaluate candidate suitability based on their CV.";
+    }
+    await runDriveScreen(jd);
+    return;
+  }
+
+  if (!jd) { showToast("Please enter a job description."); return; }
 
   if (state.files.length === 0) { showToast("Please upload at least one CV."); return; }
 
