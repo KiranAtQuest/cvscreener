@@ -32,22 +32,22 @@ async def login(
     password: str = Form(...),
     response: FResponse = None,
 ):
-    user = _auth.get_user_by_credentials(username, password)
+    user = _auth.login_user(username, password)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid username or password")
-    token = _auth.create_token(user["id"], user["username"], user["role"])
+    token = _auth.make_token(user["username"], user["role"])
     resp = JSONResponse({"username": user["username"], "role": user["role"], "email": user["email"]})
     resp.set_cookie(
-        _auth.COOKIE, token,
+        "qs_token", token,
         httponly=True, samesite="lax", secure=False,  # set secure=True behind HTTPS
-        max_age=_auth.TOKEN_TTL * 3600,
+        max_age=_auth.JWT_EXPIRE_H * 3600,
     )
     return resp
 
 @app.post("/api/auth/logout")
 async def logout():
     resp = JSONResponse({"ok": True})
-    resp.delete_cookie(_auth.COOKIE)
+    resp.delete_cookie("qs_token")
     return resp
 
 @app.get("/api/auth/me")
