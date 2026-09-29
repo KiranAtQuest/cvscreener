@@ -1447,14 +1447,14 @@ async function loadDriveFiles() {
     // Extract role from filename: {id}_{name}_{role}_{original_file}
     // Role is the segment(s) between position 2 and the last position
     function roleFromFilename(name) {
-      // Sync.py format: {numeric_id}_{candidate name}_{role name}_{original filename}
-      // Segments are separated by _ ; spaces are preserved within each segment.
+      // Sync.py format: {numeric_id}_{position_title}_{candidate_name}_{original_file}
+      // Spaces are preserved within each segment; _ is only the segment separator.
       // Only parse files whose first segment is a numeric Zoho candidate ID.
       const parts = name.split('_');
       if (parts.length < 4) return '';
       if (!/^\d+$/.test(parts[0])) return ''; // not a sync.py file
-      // part[0]=id, part[1]=name, part[-1]=original filename, everything in between=role
-      return parts.slice(2, parts.length - 1).join(' ').trim();
+      // part[0]=id, part[1]=position title, part[2]=candidate name, part[3]=original file
+      return parts[1].trim();
     }
 
     // Build role map from filenames directly — no Zoho API call needed
