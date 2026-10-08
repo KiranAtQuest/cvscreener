@@ -91,6 +91,8 @@ def init_db():
                     created_at TIMESTAMPTZ DEFAULT NOW()
                 )
             """)
+            # Ensure created_at has a default (may be missing on older deployments)
+            cur.execute("ALTER TABLE users ALTER COLUMN created_at SET DEFAULT NOW()")
             # Seed default admin
             cur.execute("SELECT id FROM users WHERE username = 'admin'")
             if not cur.fetchone():
