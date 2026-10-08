@@ -78,17 +78,21 @@ async def admin_list_users(qs_token: Optional[str] = Cookie(default=None)):
 @app.post("/api/admin/users")
 async def admin_create_user(body: NewUser, qs_token: Optional[str] = Cookie(default=None)):
     _auth.require_admin(qs_token=qs_token)
-    return _auth.create_user(body.username, body.email, body.password, body.role)
+    uid = _auth.create_user(body.username, body.email, body.password, body.role)
+    return {"id": uid, "username": body.username}
 
 @app.patch("/api/admin/users/{uid}")
 async def admin_update_user(uid: int, body: UpdateUser, qs_token: Optional[str] = Cookie(default=None)):
     _auth.require_admin(qs_token=qs_token)
-    return _auth.update_user(uid, body.role, body.active, body.password)
+    fields = {k: v for k, v in body.model_dump().items() if v is not None}
+    if fields:
+        _auth.update_user(uid, **fields)
+    return {"ok": True}
 
 @app.delete("/api/admin/users/{uid}")
 async def admin_delete_user(uid: int, qs_token: Optional[str] = Cookie(default=None)):
-    admin = _auth.require_admin(qs_token=qs_token)
-    _auth.delete_user(uid, admin["id"])
+    _auth.require_admin(qs_token=qs_token)
+    _auth.delete_user(uid)
     return {"ok": True}
 
 @app.get("/api/admin/errors")
