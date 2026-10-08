@@ -46,6 +46,24 @@ nav .nav-btn.primary { background: var(--blue); color: #fff; }
 nav .nav-btn.primary:hover { background: var(--blue-dark); }
 nav .nav-btn:disabled { opacity: .4; cursor: not-allowed; }
 
+/* ── Spinner / loading state ──────────────────────────────────────── */
+@keyframes qs-spin { to { transform: rotate(360deg); } }
+.btn-loading {
+  position: relative; opacity: .75 !important; cursor: not-allowed !important;
+  pointer-events: none;
+}
+.btn-loading .qs-spinner {
+  display: inline-block;
+  width: 13px; height: 13px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: qs-spin .65s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
 /* ── Login screen ─────────────────────────────────────────────── */
 .login-wrap {
   flex: 1; display: flex; align-items: center; justify-content: center;
@@ -941,6 +959,21 @@ function renderNav() {
   }
 }
 
+// ── Button loading helpers ────────────────────────────────────────────────────
+function btnLoad(btn, label) {
+  if (!btn) return;
+  btn._qs_orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.classList.add("btn-loading");
+  btn.innerHTML = `<span class="qs-spinner"></span>${label || "Please wait…"}`;
+}
+function btnReset(btn) {
+  if (!btn) return;
+  btn.disabled = false;
+  btn.classList.remove("btn-loading");
+  if (btn._qs_orig !== undefined) { btn.innerHTML = btn._qs_orig; delete btn._qs_orig; }
+}
+
 async function doLogin() {
   const btn = document.getElementById("login-btn");
   const err = document.getElementById("login-err");
@@ -948,7 +981,7 @@ async function doLogin() {
   const password = document.getElementById("login-password").value;
   err.textContent = "";
   if (!username || !password) { err.textContent = "Enter username and password."; return; }
-  btn.disabled = true; btn.textContent = "Signing in…";
+  btnLoad(btn, "Signing in…");
   try {
     const fd = new FormData();
     fd.append("username", username); fd.append("password", password);
@@ -967,7 +1000,7 @@ async function doLogin() {
   } catch(e) {
     err.textContent = "Network error. Please try again.";
   } finally {
-    btn.disabled = false; btn.textContent = "Sign In";
+    btnReset(btn);
   }
 }
 
@@ -1123,12 +1156,15 @@ function confirmDelete(uid, username) {
 async function addUser() {
   const err = document.getElementById("add-user-err");
   const ok  = document.getElementById("add-user-ok");
+  const btn = document.querySelector(".screen-btn.primary[onclick='addUser()']") ||
+              [...document.querySelectorAll("button")].find(b => b.textContent.trim() === "Add User");
   err.textContent = ""; ok.textContent = "";
   const username = document.getElementById("nu-username").value.trim();
   const email    = document.getElementById("nu-email").value.trim();
   const password = document.getElementById("nu-password").value;
   const role     = document.getElementById("nu-role").value;
   if (!username || !email || !password) { err.textContent = "All fields are required."; return; }
+  btnLoad(btn, "Adding…");
   try {
     const res = await fetch("/api/admin/users", {
       method: "POST",
@@ -1144,6 +1180,7 @@ async function addUser() {
     document.getElementById("nu-role").value = "recruiter";
     loadUsers();
   } catch(e) { err.textContent = "Network error — server may be restarting. Try again in a moment."; }
+  finally { btnReset(btn); }
 }
 
 // ── Modal ───────────────────────────────────────────────────────────────────────
@@ -1291,7 +1328,7 @@ async function detectCompetencies() {
   const jd = document.getElementById("jd-input").value.trim();
   if (!jd) { document.getElementById("detect-note").textContent = "Please enter a job description first."; return; }
   const btn = document.getElementById("detect-btn");
-  btn.disabled = true; btn.textContent = "Detecting…";
+  btnLoad(btn, "Detecting…");
   document.getElementById("detect-note").textContent = "";
   try {
     const fd = new FormData(); fd.append("jd", jd);
@@ -1310,7 +1347,7 @@ async function detectCompetencies() {
   } catch(e) {
     document.getElementById("detect-note").textContent = "❌ " + e.message;
   } finally {
-    btn.disabled = false; btn.textContent = "✨ Auto-detect from JD";
+    btnReset(btn);
   }
 }
 
@@ -1495,8 +1532,8 @@ async function loadDriveFiles() {
   errEl.textContent = '';
   listEl.style.display = 'none';
   roleWrap.style.display = 'none';
-  statusEl.textContent = 'Loading from Drive…';
-  btn.disabled = true;
+  statusEl.textContent = '';
+  btnLoad(btn, "Loading…");
   try {
     const res = await fetch(`/api/drive/files?from_date=${from}&to_date=${to}`);
     const data = await res.json();
@@ -1548,7 +1585,8 @@ async function loadDriveFiles() {
     statusEl.textContent = '';
     errEl.textContent = '❌ ' + e.message;
   } finally {
-    btn.disabled = false;
+    btnReset(btn);
+    if (!statusEl.textContent) statusEl.textContent = 'Loading from Drive…';
   }
 }
 
@@ -1612,12 +1650,13 @@ function updateProgress(title, msg, batchDone, batchTotal) {
 }
 
 async function runDriveScreen(jd) {
+  const screenBtn = document.getElementById("screen-btn");
   if (driveSelectedIds.length === 0) {
-    showToast("Load files from Drive first."); return;
+    btnReset(screenBtn); showToast("Load files from Drive first."); return;
   }
   state.roleTitle = document.getElementById("role-title").value.trim();
   if (!state.roleTitle && !jd) {
-    showToast("Please select a role or enter a job description first."); return;
+    btnReset(screenBtn); showToast("Please select a role or enter a job description first."); return;
   }
   state.currentJd  = jd;
   state.currentJdHash = jd ? jdHash(jd) : "";
@@ -1694,20 +1733,25 @@ async function runDriveScreen(jd) {
   } catch(e) {
     hideProgress();
     showToast("❌ " + e.message, 5000);
+  } finally {
+    btnReset(document.getElementById("screen-btn"));
   }
 }
 
 async function runScreen() {
   const jd = document.getElementById("jd-input").value.trim();
+  const screenBtn = document.getElementById("screen-btn");
+  btnLoad(screenBtn, "Starting…");
 
   if (driveMode) {
     await runDriveScreen(jd);  // jd is optional in Drive mode
+    btnReset(screenBtn);
     return;
   }
 
-  if (!jd) { showToast("Please enter a job description."); return; }
+  if (!jd) { btnReset(screenBtn); showToast("Please enter a job description."); return; }
 
-  if (state.files.length === 0) { showToast("Please upload at least one CV."); return; }
+  if (state.files.length === 0) { btnReset(screenBtn); showToast("Please upload at least one CV."); return; }
 
   state.roleTitle = document.getElementById("role-title").value.trim();
   state.currentJd = jd;
@@ -2141,6 +2185,8 @@ function buildExportBody() {
 }
 
 async function exportPDF() {
+  const btn = document.getElementById("nav-export-pdf");
+  btnLoad(btn, "PDF…");
   showProgress("Generating PDF…", "Building your screening report.");
   try {
     const res = await fetch("/api/export/pdf", {
@@ -2152,10 +2198,12 @@ async function exportPDF() {
     const blob = await res.blob();
     download(blob, `CV_Screening_${today()}.pdf`);
   } catch(e) { showToast("❌ " + e.message, 4000); }
-  finally { hideProgress(); }
+  finally { hideProgress(); btnReset(btn); }
 }
 
 async function exportExcel() {
+  const btn = document.getElementById("nav-export-xl");
+  btnLoad(btn, "Excel…");
   showProgress("Generating Excel…", "Building your screening spreadsheet.");
   try {
     const res = await fetch("/api/export/excel", {
@@ -2167,7 +2215,7 @@ async function exportExcel() {
     const blob = await res.blob();
     download(blob, `CV_Screening_${today()}.xlsx`);
   } catch(e) { showToast("❌ " + e.message, 4000); }
-  finally { hideProgress(); }
+  finally { hideProgress(); btnReset(btn); }
 }
 
 function download(blob, name) {
@@ -2244,6 +2292,8 @@ async function saveCurrentJd() {
   const jdText = (document.getElementById("jd-input").value || "").trim();
   const roleTitle = (document.getElementById("role-title").value || "").trim();
   if (!jdText) { showToast("Paste a JD first."); return; }
+  const btn = document.getElementById("save-jd-btn");
+  btnLoad(btn, "Saving…");
   try {
     const res = await fetch("/api/jds", {
       method: "POST",
@@ -2254,6 +2304,7 @@ async function saveCurrentJd() {
     showToast("JD saved");
     await loadPastJds();
   } catch { showToast("Could not save JD."); }
+  finally { btnReset(btn); }
 }
 
 async function deleteJd(e, id) {
