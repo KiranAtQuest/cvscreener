@@ -112,6 +112,27 @@ class CalibNote(BaseModel):
     note: str
     jd_hash: str = ""
 
+@app.get("/api/jds")
+async def list_jds(qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
+    return {"jds": _auth.list_jds()}
+
+class SaveJdBody(BaseModel):
+    role_title: str = ""
+    jd_text: str
+
+@app.post("/api/jds")
+async def save_jd(body: SaveJdBody, qs_token: Optional[str] = Cookie(default=None)):
+    user = _auth.get_current_user(qs_token)
+    jd_id = _auth.save_jd(body.role_title.strip(), body.jd_text.strip(), user["username"])
+    return {"id": jd_id}
+
+@app.delete("/api/jds/{jd_id}")
+async def delete_jd(jd_id: int, qs_token: Optional[str] = Cookie(default=None)):
+    _auth.get_current_user(qs_token)
+    _auth.delete_jd(jd_id)
+    return {"ok": True}
+
 @app.get("/api/calibration")
 async def get_calibration(jd_hash: str = "", qs_token: Optional[str] = Cookie(default=None)):
     _auth.get_current_user(qs_token)

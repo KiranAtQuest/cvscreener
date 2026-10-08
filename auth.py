@@ -85,7 +85,7 @@ def init_db():
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS saved_jds (
                     id SERIAL PRIMARY KEY,
-                    role_title TEXT NOT NULL,
+                    role_title TEXT NOT NULL DEFAULT '',
                     jd_text TEXT NOT NULL,
                     created_by TEXT,
                     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -250,6 +250,31 @@ def get_screening_examples(role_title: str, limit: int = 15):
             return [dict(r) for r in cur.fetchall()]
 
 
+# ── Saved JDs ──────────────────────────────────────────────────────────────────
+
+def list_jds():
+    with _conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, role_title, jd_text, created_by, created_at FROM saved_jds ORDER BY created_at DESC LIMIT 50")
+            return [dict(r) for r in cur.fetchall()]
+
+
+def save_jd(role_title: str, jd_text: str, username: str):
+    with _conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO saved_jds (role_title, jd_text, created_by) VALUES (%s,%s,%s) RETURNING id",
+                (role_title, jd_text, username)
+            )
+            return cur.fetchone()["id"]
+
+
+def delete_jd(jd_id: int):
+    with _conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM saved_jds WHERE id=%s", (jd_id,))
+
+
 # ── Upload error logging ───────────────────────────────────────────────────────
 
 def log_upload_error(filename: str, file_type: str, role_title: str,
@@ -278,30 +303,3 @@ def update_error_status(error_id: int, status: str):
     with _conn() as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE upload_errors SET status=%s WHERE id=%s", (status, error_id))
-
-
-# ── Saved JDs ──────────────────────────────────────────────────────────────────
-
-def save_jd(role_title: str, jd_text: str, username: str):
-    with _conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO saved_jds (role_title, jd_text, created_by)
-                VALUES (%s, %s, %s) RETURNING id
-            """, (role_title, jd_text, username))
-            return cur.fetchone()["id"]
-
-def list_jds(limit: int = 20):
-    with _conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT id, role_title, jd_text, created_by,
-                       to_char(created_at AT TIME ZONE 'Asia/Kolkata', 'DD Mon YYYY') AS date
-                FROM saved_jds ORDER BY created_at DESC LIMIT %s
-            """, (limit,))
-            return [dict(r) for r in cur.fetchall()]
-
-def delete_jd(jd_id: int):
-    with _conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM saved_jds WHERE id=%s", (jd_id,))

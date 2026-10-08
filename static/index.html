@@ -191,8 +191,7 @@ select:focus { outline: none; border-color: var(--blue); }
 main { flex: 1; padding: 32px 28px; max-width: 1100px; width: 100%; margin: 0 auto; }
 
 /* ── Setup screen ─────────────────────────────────────────────── */
-.setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
-@media (max-width: 760px) { .setup-grid { grid-template-columns: 1fr; } }
+.setup-grid { display: flex; flex-direction: column; gap: 20px; max-width: 760px; margin: 0 auto; }
 .card {
   background: #fff; border-radius: var(--radius); border: 1px solid var(--border);
   box-shadow: var(--shadow); padding: 24px;
@@ -268,19 +267,6 @@ textarea { min-height: 140px; line-height: 1.5; }
 .role-row label { margin: 0; flex-shrink: 0; }
 
 /* Calibration */
-.past-jd-item {
-  display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px;
-  background: var(--light); border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
-  transition: border-color .15s;
-}
-.past-jd-item:hover { border-color: var(--blue); }
-.past-jd-item.selected { border-color: var(--blue); background: var(--blue-bg); }
-.pji-body { flex: 1; min-width: 0; }
-.pji-role { font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 2px; }
-.pji-date { font-size: 11px; color: var(--grey); margin-bottom: 4px; }
-.pji-preview { font-size: 12px; color: var(--grey); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pji-del { background: none; border: none; color: var(--grey); cursor: pointer; font-size: 14px; flex-shrink: 0; padding: 2px 4px; }
-.pji-del:hover { color: #c00; }
 .calib-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; max-height: 180px; overflow-y: auto; }
 .calib-item {
   display: flex; align-items: flex-start; gap: 8px; padding: 7px 10px;
@@ -292,8 +278,44 @@ textarea { min-height: 140px; line-height: 1.5; }
 .calib-add-row { display: flex; gap: 8px; }
 .calib-add-row textarea { min-height: 58px; resize: none; }
 
+/* Past JDs */
+.past-jds-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 0; border: none; background: none; font-family: inherit; font-size: 13px; color: var(--blue); font-weight: 600; margin-top: 10px; }
+.past-jds-toggle:hover { text-decoration: underline; }
+.past-jd-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.past-jd-item {
+  border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px;
+  background: #fff; cursor: pointer; transition: border-color .15s, box-shadow .15s;
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.past-jd-item:hover { border-color: var(--blue); box-shadow: 0 2px 8px rgba(0,117,188,.1); }
+.past-jd-body { flex: 1; min-width: 0; }
+.past-jd-role { font-size: 14px; font-weight: 700; color: var(--navy); margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.past-jd-meta { font-size: 11px; color: var(--grey); margin-bottom: 5px; }
+.past-jd-preview { font-size: 12px; color: #555; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.past-jd-del { flex-shrink: 0; background: none; border: none; font-size: 16px; color: #ccc; cursor: pointer; padding: 0; line-height: 1; margin-top: 1px; }
+.past-jd-del:hover { color: var(--danger-red); }
+.jd-optional-note { font-size: 12px; color: var(--grey); background: var(--light); border-radius: 7px; padding: 8px 12px; margin-bottom: 10px; }
+
+/* Drive file list */
+.drive-file-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  border-bottom: 1px solid var(--border); font-size: 12px;
+}
+.drive-file-item:last-child { border-bottom: none; }
+.drive-file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--navy); }
+.drive-file-role { font-size: 10px; background: var(--blue-bg); color: var(--blue-dark); padding: 2px 7px; border-radius: 4px; flex-shrink: 0; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drive-file-date { color: var(--grey); font-size: 11px; flex-shrink: 0; }
+
+/* Results context */
+#results-context { background: var(--blue-bg); border: 1px solid #B8DCF0; border-radius: var(--radius); padding: 14px 18px; margin-bottom: 20px; display: none; }
+#results-context .rc-role { font-size: 15px; font-weight: 700; color: var(--blue-dark); margin-bottom: 4px; }
+#results-context .rc-jd-wrap { font-size: 12px; color: #555; margin-top: 6px; }
+#results-context .rc-jd-text { max-height: 60px; overflow: hidden; transition: max-height .3s; }
+#results-context .rc-jd-text.open { max-height: 400px; }
+#results-context .rc-toggle { font-size: 12px; color: var(--blue); cursor: pointer; margin-top: 4px; border: none; background: none; font-family: inherit; padding: 0; }
+
 /* Screen btn */
-.screen-btn-wrap { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 12px; }
+.screen-btn-wrap { display: flex; justify-content: flex-end; gap: 12px; }
 .screen-btn {
   padding: 12px 32px; border-radius: 9px; font-size: 15px; font-weight: 700;
   cursor: pointer; border: none; font-family: inherit; transition: .15s;
@@ -326,18 +348,9 @@ textarea { min-height: 140px; line-height: 1.5; }
 
 /* ── Results screen ───────────────────────────────────────────── */
 .results-header {
-  display: flex; align-items: center; gap: 16px; margin-bottom: 8px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;
 }
 .results-header h1 { font-size: 20px; font-weight: 700; flex: 1; }
-#results-context {
-  margin-bottom: 20px; padding: 12px 16px; background: var(--blue-bg);
-  border-left: 3px solid var(--blue); border-radius: 0 8px 8px 0; display: none;
-}
-#results-context .rc-role { font-size: 15px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
-#results-context .rc-jd { font-size: 12px; color: var(--grey); white-space: pre-wrap; line-height: 1.5;
-  max-height: 80px; overflow: hidden; position: relative; }
-#results-context .rc-jd.expanded { max-height: none; }
-#results-context .rc-toggle { font-size: 11px; color: var(--blue); cursor: pointer; margin-top: 4px; display: inline-block; }
 .results-stats { display: flex; gap: 12px; flex-wrap: wrap; }
 .stat-pill {
   padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
@@ -669,24 +682,52 @@ textarea { min-height: 140px; line-height: 1.5; }
   <main>
     <div class="setup-grid">
 
-      <!-- Upload card -->
+      <!-- 1. CV Files card -->
       <div class="card">
-        <h2>CV Files</h2>
+        <h2>1 · CV Files</h2>
         <!-- Source tabs -->
-        <div class="upload-tabs" style="display:flex;gap:0;margin-bottom:16px;border:1px solid var(--border);border-radius:8px;overflow:hidden">
-          <button class="upload-tab-btn" id="tab-upload" onclick="switchUploadTab('upload')"
-            style="flex:1;padding:9px 0;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--light);color:var(--grey);border-right:1px solid var(--border);font-family:inherit">
-            📂 Upload Files
+        <div style="display:flex;gap:0;margin:12px 0 16px;border:1.5px solid var(--border);border-radius:9px;overflow:hidden">
+          <button id="tab-drive" onclick="switchUploadTab('drive')"
+            style="flex:1;padding:10px 0;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--blue);color:#fff;font-family:inherit;transition:.15s">
+            ☁ From Google Drive
           </button>
-          <button class="upload-tab-btn active" id="tab-drive" onclick="switchUploadTab('drive')"
-            style="flex:1;padding:9px 0;font-size:13px;font-weight:600;border:none;cursor:pointer;background:#fff;color:var(--navy);font-family:inherit">
-            ☁️ From Google Drive
+          <button id="tab-upload" onclick="switchUploadTab('upload')"
+            style="flex:1;padding:10px 0;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--light);color:var(--grey);font-family:inherit;border-left:1.5px solid var(--border);transition:.15s">
+            📂 Upload Files
           </button>
         </div>
 
-        <!-- Upload pane -->
+        <!-- Drive pane (default) -->
+        <div id="pane-drive">
+          <div class="card-sub" style="margin-bottom:14px">Pull CVs from the linked Google Drive folder. Showing the last 7 days by default.</div>
+          <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap">
+            <div style="flex:1;min-width:130px">
+              <label style="font-size:12px;font-weight:600;color:var(--grey);display:block;margin-bottom:4px">From date</label>
+              <input type="date" id="drive-from" style="width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px">
+            </div>
+            <div style="flex:1;min-width:130px">
+              <label style="font-size:12px;font-weight:600;color:var(--grey);display:block;margin-bottom:4px">To date</label>
+              <input type="date" id="drive-to" style="width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px">
+            </div>
+            <button class="btn-sm blue" onclick="loadDriveFiles()" id="drive-load-btn" style="padding:9px 18px">Load CVs</button>
+          </div>
+          <div id="drive-status" style="font-size:13px;color:var(--grey);margin-bottom:8px"></div>
+          <!-- Role filter -->
+          <div id="drive-role-wrap" style="display:none;margin-bottom:12px">
+            <label style="font-size:12px;font-weight:600;color:var(--grey);display:block;margin-bottom:4px">Filter by role</label>
+            <select id="drive-role-select" onchange="filterDriveByRole()"
+              style="width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;background:#fff">
+              <option value="">All roles</option>
+            </select>
+            <div id="drive-role-count" style="font-size:12px;color:var(--grey);margin-top:4px"></div>
+          </div>
+          <div id="drive-file-list" style="max-height:260px;overflow-y:auto;background:var(--light);border-radius:9px;border:1.5px solid var(--border);display:none"></div>
+          <div class="err-msg" id="drive-err"></div>
+        </div>
+
+        <!-- Upload pane (hidden by default) -->
         <div id="pane-upload" style="display:none">
-          <div class="card-sub" style="margin-bottom:10px">Upload PDF, DOCX or DOC files. Up to 500 CVs — large batches processed automatically.</div>
+          <div class="card-sub" style="margin-bottom:10px">Upload PDF, DOCX or DOC files. Up to 500 CVs.</div>
           <div class="dropzone" id="dropzone"
                ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event)">
             <input type="file" id="file-input" accept=".pdf,.doc,.docx" multiple onchange="filesChosen(event)">
@@ -698,70 +739,48 @@ textarea { min-height: 140px; line-height: 1.5; }
           <div class="err-msg" id="file-err"></div>
           <div id="file-time-est" style="font-size:12px;color:var(--grey);margin-top:6px;display:none"></div>
         </div>
-
-        <!-- Drive pane -->
-        <div id="pane-drive">
-          <div class="card-sub" style="margin-bottom:12px">Pull CVs from the linked Google Drive folder. Default: last 2 days.</div>
-          <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap">
-            <div style="flex:1;min-width:130px">
-              <label style="font-size:12px;font-weight:600;color:var(--grey);display:block;margin-bottom:4px">From date</label>
-              <input type="date" id="drive-from" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px">
-            </div>
-            <div style="flex:1;min-width:130px">
-              <label style="font-size:12px;font-weight:600;color:var(--grey);display:block;margin-bottom:4px">To date</label>
-              <input type="date" id="drive-to" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px">
-            </div>
-            <button class="btn-sm blue" onclick="loadDriveFiles()" id="drive-load-btn">Load from Drive</button>
-          </div>
-          <div id="drive-status" style="font-size:13px;color:var(--grey);margin-bottom:8px"></div>
-          <!-- Role filter dropdown (shown after files load) -->
-          <div id="drive-role-wrap" style="display:none;margin-bottom:10px">
-            <label style="font-size:12px;font-weight:600;color:var(--grey);display:block;margin-bottom:4px">Filter by role applied for</label>
-            <select id="drive-role-select" onchange="filterDriveByRole()"
-              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:#fff">
-              <option value="">All roles</option>
-            </select>
-            <div id="drive-role-count" style="font-size:12px;color:var(--grey);margin-top:4px"></div>
-          </div>
-          <div id="drive-file-list" style="max-height:240px;overflow-y:auto;background:var(--light);border-radius:8px;border:1px solid var(--border);padding:8px;display:none"></div>
-          <div class="err-msg" id="drive-err"></div>
-        </div>
       </div>
 
-      <!-- JD card -->
+      <!-- 2. Job Description card -->
       <div class="card">
-        <h2>Job Description</h2>
-        <div class="card-sub">Paste or upload a JD, or pick a previously used one below.</div>
-
-        <!-- Past JDs -->
-        <div id="past-jds-wrap" style="display:none;margin-bottom:16px">
-          <label style="font-size:12px;font-weight:600;color:var(--grey);display:block;margin-bottom:6px">Previously used JDs</label>
-          <div id="past-jds-list" style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto"></div>
-        </div>
-
-        <!-- Enter / upload -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <label for="jd-input" style="margin:0;font-size:13px;font-weight:600">Enter JD manually</label>
-          <label class="btn-sm outline" style="cursor:pointer;font-size:12px;padding:5px 12px;margin:0">
-            ⬆ Upload JD file
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:6px;flex-wrap:wrap">
+          <div>
+            <h2 style="margin-bottom:2px">2 · Job Description</h2>
+            <div class="card-sub" style="margin:0">Paste, upload, or pick a past JD below.</div>
+          </div>
+          <label class="btn-sm outline" style="cursor:pointer;font-size:12px;padding:6px 14px;margin:0;flex-shrink:0">
+            ⬆ Upload JD
             <input type="file" id="jd-file-input" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="uploadJD(event)">
           </label>
         </div>
-        <div id="jd-upload-status" style="font-size:12px;color:var(--grey);margin-bottom:6px;min-height:16px"></div>
-        <textarea id="jd-input" placeholder="Paste the job description here, or upload a file above…" rows="8" oninput="onJdChange()"></textarea>
-        <div style="margin-top:12px;display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
-          <div style="flex:1;min-width:180px">
-            <label>Role Title <span style="font-weight:400;color:var(--grey)">(optional)</span></label>
-            <input type="text" id="role-title" placeholder="e.g. Programme Manager – Skilling">
-          </div>
-          <button class="btn-sm outline" onclick="saveCurrentJd()" style="margin-bottom:1px" title="Save this JD for future use">💾 Save JD</button>
+        <div id="jd-upload-status" style="font-size:12px;color:var(--grey);margin-bottom:8px;min-height:16px"></div>
+        <div id="jd-drive-note" class="jd-optional-note" style="display:none">
+          ℹ In Drive mode the JD is optional — the role name is used as context. Add a JD below if you have one.
+        </div>
+        <div style="margin-bottom:12px">
+          <label>Role Title</label>
+          <input type="text" id="role-title" placeholder="e.g. Programme Manager – Skilling">
+        </div>
+        <label for="jd-input">Job Description</label>
+        <textarea id="jd-input" placeholder="Paste the full job description here, or upload a file above…" rows="7" oninput="onJdChange()"></textarea>
+
+        <!-- Past JDs -->
+        <button class="past-jds-toggle" id="past-jds-toggle" onclick="togglePastJds()">
+          <span id="past-jds-toggle-icon">▸</span> Previously used JDs
+        </button>
+        <div id="past-jd-list" style="display:none">
+          <div id="past-jd-inner" class="past-jd-list"></div>
+          <div id="past-jd-empty" style="font-size:12px;color:var(--grey);padding:8px 0;display:none">No saved JDs yet. After screening, save the JD for reuse.</div>
+        </div>
+        <div style="margin-top:10px;display:flex;justify-content:flex-end">
+          <button class="btn-sm outline" onclick="saveCurrentJd()" id="save-jd-btn" style="font-size:12px;display:none">💾 Save this JD</button>
         </div>
       </div>
 
-      <!-- Competencies card -->
+      <!-- 3. Competencies card -->
       <div class="card">
-        <h2>Skill Competencies</h2>
-        <div class="card-sub">Auto-detect from JD, then add or remove your own. Up to 8 competencies. NGO/non-profit experience is always included.</div>
+        <h2>3 · Skill Competencies</h2>
+        <div class="card-sub">Auto-detect from JD, or add your own. Up to 8 competencies.</div>
         <div class="chips" id="comp-chips"></div>
         <div class="chip-input-row" id="comp-add-row">
           <input type="text" id="comp-input" placeholder="Add a competency…" maxlength="60"
@@ -769,19 +788,19 @@ textarea { min-height: 140px; line-height: 1.5; }
           <button class="btn-sm blue" onclick="addCompetency()">Add</button>
         </div>
         <div id="comp-limit-note" style="font-size:11px;color:var(--grey);margin-top:6px;display:none">Maximum 8 competencies reached.</div>
-        <button class="btn-sm outline detect-btn" id="detect-btn" onclick="detectCompetencies()" style="margin-top:10px">
+        <button class="btn-sm outline detect-btn" id="detect-btn" onclick="detectCompetencies()" style="margin-top:12px">
           ✨ Auto-detect from JD
         </button>
         <div class="detect-note" id="detect-note"></div>
       </div>
 
-      <!-- Calibration card -->
+      <!-- 4. Calibration card -->
       <div class="card">
-        <h2>Reviewer Calibration <span style="font-weight:400;color:var(--grey);font-size:13px">(optional)</span></h2>
-        <div class="card-sub">Add past reviewer notes to calibrate Claude's scoring to your standards.</div>
+        <h2>4 · Reviewer Calibration <span style="font-weight:400;color:var(--grey);font-size:13px">(optional)</span></h2>
+        <div class="card-sub">Add notes to calibrate Claude's scoring to your team's standards.</div>
         <div class="calib-list" id="calib-list"></div>
         <div class="calib-add-row">
-          <textarea id="calib-input" placeholder="e.g. We value field experience over qualifications…" rows="2"></textarea>
+          <textarea id="calib-input" placeholder="e.g. We value field experience over formal qualifications…" rows="2"></textarea>
           <button class="btn-sm blue" style="align-self:flex-end" onclick="addCalib()">Add</button>
         </div>
       </div>
@@ -808,9 +827,12 @@ textarea { min-height: 140px; line-height: 1.5; }
       </div>
     </div>
     <div id="results-context">
-      <div class="rc-role" id="rc-role"></div>
-      <div class="rc-jd" id="rc-jd"></div>
-      <span class="rc-toggle" id="rc-toggle" onclick="toggleJdExpand()" style="display:none">Show more ▾</span>
+      <div class="rc-role" id="rc-role-text"></div>
+      <div style="font-size:12px;color:var(--blue-dark)">Screened against the criteria below</div>
+      <div class="rc-jd-wrap" id="rc-jd-wrap" style="display:none">
+        <div class="rc-jd-text" id="rc-jd-text"></div>
+        <button class="rc-toggle" onclick="rcToggle()">Show more</button>
+      </div>
     </div>
     <div class="learning-banner" id="learning-banner" style="display:none"></div>
     <div class="truncate-banner" id="truncate-banner" style="display:none">
@@ -898,6 +920,7 @@ async function initAuth() {
       currentUser = await res.json();
       renderNav();
       await loadCalibration();
+      loadPastJds();
       showScreen("setup");
     } else {
       showScreen("login");
@@ -939,7 +962,7 @@ async function doLogin() {
     document.getElementById("login-password").value = "";
     renderNav();
     await loadCalibration();
-    await loadPastJds();
+    loadPastJds();
     showScreen("setup");
   } catch(e) {
     err.textContent = "Network error. Please try again.";
@@ -1243,70 +1266,6 @@ function removeComp(i) {
   renderChips();
 }
 
-// ── Past JDs ────────────────────────────────────────────────────────────────────
-let savedJds = [];
-
-async function loadPastJds() {
-  try {
-    const res = await fetch('/api/jds');
-    if (!res.ok) return;
-    const data = await res.json();
-    savedJds = data.jds || [];
-    renderPastJds();
-  } catch(e) { /* non-critical */ }
-}
-
-function renderPastJds() {
-  const wrap = document.getElementById('past-jds-wrap');
-  const list = document.getElementById('past-jds-list');
-  if (!savedJds.length) { wrap.style.display = 'none'; return; }
-  wrap.style.display = '';
-  list.innerHTML = savedJds.map(j => `
-    <div class="past-jd-item" id="pji-${j.id}" onclick="pickJd(${j.id})">
-      <div class="pji-body">
-        <div class="pji-role">${j.role_title || 'Untitled JD'}</div>
-        <div class="pji-date">Saved ${j.date} by ${j.created_by || '—'}</div>
-        <div class="pji-preview">${(j.jd_text || '').slice(0, 120).replace(/\n/g,' ')}…</div>
-      </div>
-      <button class="pji-del" onclick="deleteJd(event,${j.id})" title="Delete">✕</button>
-    </div>`).join('');
-}
-
-function pickJd(id) {
-  const j = savedJds.find(x => x.id === id);
-  if (!j) return;
-  document.getElementById('jd-input').value = j.jd_text;
-  if (j.role_title) document.getElementById('role-title').value = j.role_title;
-  document.querySelectorAll('.past-jd-item').forEach(el => el.classList.remove('selected'));
-  document.getElementById(`pji-${id}`)?.classList.add('selected');
-  onJdChange();
-  showToast('JD loaded.');
-}
-
-async function saveCurrentJd() {
-  const jd = document.getElementById('jd-input').value.trim();
-  const role = document.getElementById('role-title').value.trim();
-  if (!jd) { showToast('Please enter a job description first.'); return; }
-  try {
-    const res = await fetch('/api/jds', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ role_title: role || 'Untitled JD', jd_text: jd })
-    });
-    if (!res.ok) throw new Error();
-    showToast('JD saved.');
-    await loadPastJds();
-  } catch(e) { showToast('Could not save JD.'); }
-}
-
-async function deleteJd(e, id) {
-  e.stopPropagation();
-  try {
-    await fetch(`/api/jds/${id}`, { method: 'DELETE' });
-    savedJds = savedJds.filter(j => j.id !== id);
-    renderPastJds();
-  } catch(e) { showToast('Could not delete JD.'); }
-}
-
 async function uploadJD(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -1500,10 +1459,14 @@ function switchUploadTab(tab) {
   driveMode = (tab === 'drive');
   document.getElementById('pane-upload').style.display = driveMode ? 'none' : '';
   document.getElementById('pane-drive').style.display  = driveMode ? '' : 'none';
-  document.getElementById('tab-upload').style.background = driveMode ? 'var(--light)' : '#fff';
-  document.getElementById('tab-upload').style.color      = driveMode ? 'var(--grey)' : 'var(--navy)';
-  document.getElementById('tab-drive').style.background  = driveMode ? '#fff' : 'var(--light)';
-  document.getElementById('tab-drive').style.color       = driveMode ? 'var(--navy)' : 'var(--grey)';
+  const tabDrive  = document.getElementById('tab-drive');
+  const tabUpload = document.getElementById('tab-upload');
+  tabDrive.style.background  = driveMode ? 'var(--blue)' : 'var(--light)';
+  tabDrive.style.color       = driveMode ? '#fff' : 'var(--grey)';
+  tabUpload.style.background = driveMode ? 'var(--light)' : 'var(--blue)';
+  tabUpload.style.color      = driveMode ? 'var(--grey)' : '#fff';
+  const driveNote = document.getElementById('jd-drive-note');
+  if (driveNote) driveNote.style.display = driveMode ? '' : 'none';
   updateTimeEst();
 }
 
@@ -1613,11 +1576,12 @@ function filterDriveByRole() {
   }
   listEl.innerHTML = filtered.map(f => {
     const role = driveRoleMap[f.name.split('_')[0]] || '';
-    return `<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px">
-      <span style="color:var(--blue)">📄</span>
-      <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${f.name}">${f.name}</span>
-      ${role ? `<span style="font-size:10px;background:var(--blue-bg);color:var(--blue-dark);padding:1px 6px;border-radius:4px;flex-shrink:0">${role}</span>` : ''}
-      <span style="color:var(--grey);font-size:11px;flex-shrink:0">${f.createdTime ? f.createdTime.slice(0,10) : ''}</span>
+    const displayName = f.name.length > 70 ? f.name.slice(0, 67) + '…' : f.name;
+    return `<div class="drive-file-item" title="${f.name}">
+      <span style="color:var(--blue);flex-shrink:0">📄</span>
+      <span class="drive-file-name">${displayName}</span>
+      ${role ? `<span class="drive-file-role">${role}</span>` : ''}
+      <span class="drive-file-date">${f.createdTime ? f.createdTime.slice(0,10) : ''}</span>
     </div>`;
   }).join('');
   listEl.style.display = '';
@@ -1651,10 +1615,12 @@ async function runDriveScreen(jd) {
   if (driveSelectedIds.length === 0) {
     showToast("Load files from Drive first."); return;
   }
-  const selectedRole = document.getElementById('drive-role-select').value;
-  state.roleTitle = selectedRole || document.getElementById("role-title").value.trim();
-  state.currentJd = jd;
-  state.currentJdHash = jdHash(jd);
+  state.roleTitle = document.getElementById("role-title").value.trim();
+  if (!state.roleTitle && !jd) {
+    showToast("Please select a role or enter a job description first."); return;
+  }
+  state.currentJd  = jd;
+  state.currentJdHash = jd ? jdHash(jd) : "";
   state.decisions = {};
 
   const calibStr = JSON.stringify(state.calibration.map(c => c.note || c));
@@ -1732,16 +1698,10 @@ async function runDriveScreen(jd) {
 }
 
 async function runScreen() {
-  let jd = document.getElementById("jd-input").value.trim();
+  const jd = document.getElementById("jd-input").value.trim();
 
   if (driveMode) {
-    if (!driveSelectedIds.length) { showToast("Please load CVs from Google Drive first."); return; }
-    // JD is optional in Drive mode — fall back to the selected role name
-    if (!jd) {
-      const selectedRole = document.getElementById('drive-role-select').value;
-      jd = selectedRole ? `Role: ${selectedRole}` : "General screening — evaluate candidate suitability based on their CV.";
-    }
-    await runDriveScreen(jd);
+    await runDriveScreen(jd);  // jd is optional in Drive mode
     return;
   }
 
@@ -1844,33 +1804,35 @@ function getDecision(r) {
   return state.decisions[k]?.shortlisted;   // true | false | null/undefined
 }
 
-function toggleJdExpand() {
-  const el = document.getElementById('rc-jd');
-  const btn = document.getElementById('rc-toggle');
-  const expanded = el.classList.toggle('expanded');
-  btn.textContent = expanded ? 'Show less ▴' : 'Show more ▾';
+function rcToggle() {
+  const txt = document.getElementById("rc-jd-text");
+  const btn = txt?.nextElementSibling;
+  if (!txt) return;
+  const open = txt.classList.toggle("open");
+  if (btn) btn.textContent = open ? "Show less" : "Show more";
 }
 
 function renderResults() {
   const title = document.getElementById("results-title");
   title.textContent = state.roleTitle ? `Results — ${state.roleTitle}` : "Screening Results";
 
-  // Populate screening context panel
-  const ctx = document.getElementById('results-context');
-  const rcRole = document.getElementById('rc-role');
-  const rcJd = document.getElementById('rc-jd');
-  const rcToggle = document.getElementById('rc-toggle');
-  if (state.roleTitle || state.currentJd) {
-    rcRole.textContent = state.roleTitle ? `📋 Role: ${state.roleTitle}` : '';
-    const jdText = state.currentJd || '';
-    const isRoleFallback = jdText.startsWith('Role: ') || jdText.startsWith('General screening');
-    rcJd.textContent = isRoleFallback ? 'Screened using role name only (no JD pasted).' : jdText;
-    rcJd.classList.remove('expanded');
-    rcToggle.style.display = (!isRoleFallback && jdText.length > 200) ? '' : 'none';
-    rcToggle.textContent = 'Show more ▾';
-    ctx.style.display = '';
-  } else {
-    ctx.style.display = 'none';
+  // Context panel
+  const ctx = document.getElementById("results-context");
+  if (ctx) {
+    const roleEl = document.getElementById("rc-role-text");
+    const jdWrap = document.getElementById("rc-jd-wrap");
+    const jdTxt  = document.getElementById("rc-jd-text");
+    if (state.roleTitle || state.currentJd) {
+      ctx.style.display = "";
+      if (roleEl) roleEl.textContent = state.roleTitle
+        ? `Role: ${state.roleTitle}` : "No role title specified";
+      if (state.currentJd && jdWrap && jdTxt) {
+        jdWrap.style.display = "";
+        jdTxt.textContent = state.currentJd;
+      } else if (jdWrap) { jdWrap.style.display = "none"; }
+    } else {
+      ctx.style.display = "none";
+    }
   }
 
   const eligible = state.results.filter(r => !r.filtered);
@@ -2219,13 +2181,106 @@ function today() {
   return new Date().toISOString().slice(0,10);
 }
 
+// ── Past JDs ────────────────────────────────────────────────────────────────────
+let pastJds = [];
+
+async function loadPastJds() {
+  try {
+    const res = await fetch("/api/jds");
+    if (!res.ok) return;
+    const data = await res.json();
+    pastJds = data.jds || [];
+    renderPastJds();
+  } catch {}
+}
+
+function renderPastJds() {
+  const inner = document.getElementById("past-jd-inner");
+  const empty = document.getElementById("past-jd-empty");
+  if (!inner) return;
+  if (!pastJds.length) {
+    inner.innerHTML = "";
+    if (empty) empty.style.display = "";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+  inner.innerHTML = pastJds.map(jd => {
+    const date = jd.created_at ? new Date(jd.created_at).toLocaleDateString("en-IN", {day:"numeric",month:"short",year:"numeric"}) : "";
+    const preview = (jd.jd_text || "").slice(0, 120).replace(/\n+/g, " ");
+    const roleLabel = (jd.role_title || "").trim() || "Untitled JD";
+    return `<div class="past-jd-item" onclick="pickJd(${jd.id})">
+      <div class="past-jd-body">
+        <div class="past-jd-role">${roleLabel}</div>
+        <div class="past-jd-meta">${date}${jd.created_by ? ` · saved by ${jd.created_by}` : ""}</div>
+        <div class="past-jd-preview">${preview}${preview.length < (jd.jd_text||"").length ? "…" : ""}</div>
+      </div>
+      <button class="past-jd-del" onclick="deleteJd(event, ${jd.id})" title="Delete">×</button>
+    </div>`;
+  }).join("");
+}
+
+function togglePastJds() {
+  const list = document.getElementById("past-jd-list");
+  const icon = document.getElementById("past-jds-toggle-icon");
+  if (!list) return;
+  const open = list.style.display === "none";
+  list.style.display = open ? "" : "none";
+  if (icon) icon.textContent = open ? "▾" : "▸";
+  if (open && !pastJds.length) loadPastJds();
+}
+
+function pickJd(id) {
+  const jd = pastJds.find(j => j.id === id);
+  if (!jd) return;
+  document.getElementById("jd-input").value = jd.jd_text || "";
+  if (jd.role_title) document.getElementById("role-title").value = jd.role_title;
+  onJdChange();
+  document.getElementById("past-jd-list").style.display = "none";
+  document.getElementById("past-jds-toggle-icon").textContent = "▸";
+  showToast("JD loaded");
+}
+
+async function saveCurrentJd() {
+  const jdText = (document.getElementById("jd-input").value || "").trim();
+  const roleTitle = (document.getElementById("role-title").value || "").trim();
+  if (!jdText) { showToast("Paste a JD first."); return; }
+  try {
+    const res = await fetch("/api/jds", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({role_title: roleTitle, jd_text: jdText}),
+    });
+    if (!res.ok) throw new Error();
+    showToast("JD saved");
+    await loadPastJds();
+  } catch { showToast("Could not save JD."); }
+}
+
+async function deleteJd(e, id) {
+  e.stopPropagation();
+  try {
+    await fetch(`/api/jds/${id}`, { method: "DELETE" });
+    pastJds = pastJds.filter(j => j.id !== id);
+    renderPastJds();
+    showToast("JD deleted");
+  } catch { showToast("Could not delete JD."); }
+}
+
+// Show save button when JD has text
+document.addEventListener("input", e => {
+  if (e.target.id === "jd-input") {
+    const btn = document.getElementById("save-jd-btn");
+    if (btn) btn.style.display = e.target.value.trim() ? "" : "none";
+  }
+});
+
 // ── Init ───────────────────────────────────────────────────────────────────────
 renderChips();
 renderCalib();
 renderFileList();
 driveDefaultDates();
+switchUploadTab("drive"); // Drive is the default
 initAuth();
-// loadPastJds called after login succeeds
 </script>
 </body>
 </html>
