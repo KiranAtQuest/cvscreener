@@ -1,4 +1,5 @@
 import os, io, re, json
+import psycopg2
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
@@ -78,7 +79,12 @@ async def admin_list_users(qs_token: Optional[str] = Cookie(default=None)):
 @app.post("/api/admin/users")
 async def admin_create_user(body: NewUser, qs_token: Optional[str] = Cookie(default=None)):
     _auth.require_admin(qs_token=qs_token)
-    uid = _auth.create_user(body.username, body.email, body.password, body.role)
+    try:
+        uid = _auth.create_user(body.username, body.email, body.password, body.role)
+    except psycopg2.errors.UniqueViolation:
+        raise HTTPException(status_code=409, detail=f"Username '{body.username}' already exists.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     return {"id": uid, "username": body.username}
 
 @app.patch("/api/admin/users/{uid}")

@@ -954,8 +954,8 @@ async function doLogin() {
     fd.append("username", username); fd.append("password", password);
     const res = await fetch("/api/auth/login", { method: "POST", body: fd });
     if (!res.ok) {
-      const d = await res.json().catch(()=>({}));
-      err.textContent = d.detail || "Invalid username or password.";
+      const d = await res.json().catch(() => ({}));
+      err.textContent = d.detail || `Error (${res.status}). Try again.`;
       return;
     }
     currentUser = await res.json();
@@ -1135,15 +1135,15 @@ async function addUser() {
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({username, email, password, role}),
     });
-    const data = await res.json();
-    if (!res.ok) { err.textContent = data.detail || "Could not create user."; return; }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { err.textContent = data.detail || `Server error (${res.status}). Check logs.`; return; }
     ok.textContent = `✓ User "${username}" created as ${role}.`;
     document.getElementById("nu-username").value = "";
     document.getElementById("nu-email").value = "";
     document.getElementById("nu-password").value = "";
     document.getElementById("nu-role").value = "recruiter";
     loadUsers();
-  } catch(e) { err.textContent = "Network error."; }
+  } catch(e) { err.textContent = "Network error — server may be restarting. Try again in a moment."; }
 }
 
 // ── Modal ───────────────────────────────────────────────────────────────────────
