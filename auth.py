@@ -1,7 +1,7 @@
-import os, contextlib, secrets, smtplib
+import os, contextlib, secrets
 from datetime import datetime, timedelta
-from email.mime.text import MIMEText
 from typing import Optional
+import urllib.request, urllib.error, json as _json
 
 import bcrypt
 import psycopg2
@@ -13,11 +13,8 @@ DATABASE_URL    = os.environ.get("DATABASE_URL", "")
 JWT_SECRET      = os.environ.get("JWT_SECRET", "dev-secret-change-me")
 JWT_ALG         = "HS256"
 JWT_EXPIRE_H    = 12
-SMTP_HOST       = os.environ.get("SMTP_HOST", "")
-SMTP_PORT       = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_USER       = os.environ.get("SMTP_USER", "")
-SMTP_PASS       = os.environ.get("SMTP_PASS", "")
-SMTP_FROM       = os.environ.get("SMTP_FROM", SMTP_USER)
+RESEND_API_KEY  = os.environ.get("RESEND_API_KEY", "")
+RESEND_FROM     = os.environ.get("RESEND_FROM", "CV Screener <onboarding@resend.dev>")
 OTP_EXPIRE_MIN  = 10
 
 
@@ -220,25 +217,36 @@ def verify_otp(username: str, code: str) -> bool:
 
 
 def send_otp_email(to_email: str, username: str, code: str):
-    if not SMTP_HOST or not SMTP_USER:
-        raise RuntimeError("SMTP not configured — set SMTP_HOST, SMTP_USER, SMTP_PASS env vars on Render.")
-    body = (
-        f"Hi {username},\n\n"
-        f"Your CV Screener login code is:\n\n"
-        f"  {code}\n\n"
-        f"This code expires in {OTP_EXPIRE_MIN} minutes. Do not share it.\n\n"
-        f"— Quest Alliance CV Screener"
+    if not RESEND_API_KEY:
+        raise RuntimeError("RESEND_API_KEY not set — add it in Render environment variables.")
+    payload = _json.dumps({
+        "from": RESEND_FROM,
+        "to": [to_email],
+        "subject": f"{code} — your CV Screener login code",
+        "text": (
+            f"Hi {username},\n\n"
+            f"Your CV Screener login code is:\n\n"
+            f"  {code}\n\n"
+            f"This code expires in {OTP_EXPIRE_MIN} minutes. Do not share it.\n\n"
+            f"— Quest Alliance CV Screener"
+        ),
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
     )
-    msg = MIMEText(body)
-    msg["Subject"] = f"{code} — your CV Screener login code"
-    msg["From"]    = SMTP_FROM
-    msg["To"]      = to_email
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
-        smtp.ehlo()
-        smtp.starttls()
-        smtp.ehlo()
-        smtp.login(SMTP_USER, SMTP_PASS)
-        smtp.send_message(msg)
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            if resp.status not in (200, 201):
+                raise RuntimeError(f"Resend API error {resp.status}")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        raise RuntimeError(f"Resend API error {e.code}: {body}")
 
 
 # ── User management ────────────────────────────────────────────────────────────
