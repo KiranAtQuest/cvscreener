@@ -1,7 +1,7 @@
 import os, contextlib, secrets
 from datetime import datetime, timedelta
 from typing import Optional
-import urllib.request, urllib.error, json as _json
+import requests as _requests
 
 import bcrypt
 import psycopg2
@@ -219,34 +219,32 @@ def verify_otp(username: str, code: str) -> bool:
 def send_otp_email(to_email: str, username: str, code: str):
     if not RESEND_API_KEY:
         raise RuntimeError("RESEND_API_KEY not set — add it in Render environment variables.")
-    payload = _json.dumps({
-        "from": RESEND_FROM,
-        "to": [to_email],
-        "subject": f"{code} — your CV Screener login code",
-        "text": (
-            f"Hi {username},\n\n"
-            f"Your CV Screener login code is:\n\n"
-            f"  {code}\n\n"
-            f"This code expires in {OTP_EXPIRE_MIN} minutes. Do not share it.\n\n"
-            f"— Quest Alliance CV Screener"
-        ),
-    }).encode()
-    req = urllib.request.Request(
+    resp = _requests.post(
         "https://api.resend.com/emails",
-        data=payload,
+        json={
+            "from": RESEND_FROM,
+            "to": [to_email],
+            "subject": f"{code} — your CV Screener login code",
+            "text": (
+                f"Hi {username},\n\n"
+                f"Your CV Screener login code is:\n\n"
+                f"  {code}\n\n"
+                f"This code expires in {OTP_EXPIRE_MIN} minutes. Do not share it.\n\n"
+                f"— Quest Alliance CV Screener"
+            ),
+        },
         headers={
             "Authorization": f"Bearer {RESEND_API_KEY}",
-            "Content-Type": "application/json",
+            "User-Agent": "CVScreener/1.0",
         },
-        method="POST",
+        timeout=15,
     )
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            if resp.status not in (200, 201):
-                raise RuntimeError(f"Resend API error {resp.status}")
-    except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        raise RuntimeError(f"Resend API error {e.code}: {body}")
+    if resp.status_code not in (200, 201):
+        try:
+            detail = resp.json().get("message") or resp.text
+        except Exception:
+            detail = resp.text
+        raise RuntimeError(f"Resend {resp.status_code}: {detail}")
 
 
 # ── User management ────────────────────────────────────────────────────────────
