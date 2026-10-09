@@ -221,7 +221,7 @@ def verify_otp(username: str, code: str) -> bool:
 
 def send_otp_email(to_email: str, username: str, code: str):
     if not SMTP_HOST or not SMTP_USER:
-        raise RuntimeError("SMTP not configured — set SMTP_HOST, SMTP_USER, SMTP_PASS env vars.")
+        raise RuntimeError("SMTP not configured — set SMTP_HOST, SMTP_USER, SMTP_PASS env vars on Render.")
     body = (
         f"Hi {username},\n\n"
         f"Your CV Screener login code is:\n\n"
@@ -233,9 +233,10 @@ def send_otp_email(to_email: str, username: str, code: str):
     msg["Subject"] = f"{code} — your CV Screener login code"
     msg["From"]    = SMTP_FROM
     msg["To"]      = to_email
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as smtp:
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
         smtp.ehlo()
         smtp.starttls()
+        smtp.ehlo()
         smtp.login(SMTP_USER, SMTP_PASS)
         smtp.send_message(msg)
 

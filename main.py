@@ -1,4 +1,4 @@
-import os, io, re, json
+import os, io, re, json, asyncio
 import psycopg2
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
@@ -49,11 +49,13 @@ async def login(
 async def request_otp(username: str = Form(...)):
     user = _auth.get_user_by_username(username.strip())
     if not user or not user.get("email"):
-        # Don't reveal whether user exists
         return JSONResponse({"ok": True})
     code = _auth.issue_otp(user["username"])
     try:
-        _auth.send_otp_email(user["email"], user["username"], code)
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(
+            None, _auth.send_otp_email, user["email"], user["username"], code
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Could not send email: {e}")
     return JSONResponse({"ok": True})

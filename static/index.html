@@ -1018,7 +1018,7 @@ async function requestOtp() {
     const res = await fetch("/api/auth/request-otp", { method: "POST", body: fd });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      err.textContent = d.detail || `Error (${res.status}). Try again.`;
+      err.textContent = d.detail || `Error ${res.status} — check SMTP settings.`;
       return;
     }
     _otpUsername = username;
