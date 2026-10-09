@@ -587,19 +587,47 @@ textarea { min-height: 140px; line-height: 1.5; }
         <h2>CV Screener</h2>
         <div class="login-sub">Quest Alliance · Sign in to continue</div>
       </div>
-      <div class="login-field">
-        <label for="login-username">Username</label>
-        <input type="text" id="login-username" placeholder="Enter your username"
-          onkeydown="if(event.key==='Enter')doLogin()">
+
+      <!-- Step 1: username -->
+      <div id="login-step-1">
+        <div class="login-field">
+          <label for="login-username">Username</label>
+          <input type="text" id="login-username" placeholder="Enter your username"
+            onkeydown="if(event.key==='Enter')requestOtp()">
+        </div>
+        <div class="login-err" id="login-err"></div>
+        <button class="login-btn" id="login-btn" onclick="requestOtp()">Send Login Code</button>
+        <div class="login-hint">A 6-digit code will be emailed to your registered address.</div>
+        <!-- Admin password fallback (hidden by default) -->
+        <div id="admin-pw-toggle" style="text-align:center;margin-top:12px;display:none">
+          <a href="#" style="font-size:12px;color:var(--grey)" onclick="toggleAdminPw(event)">Admin password login</a>
+        </div>
+        <div id="admin-pw-wrap" style="display:none;margin-top:12px">
+          <div class="login-field" style="margin-bottom:8px">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" placeholder="Admin password"
+              onkeydown="if(event.key==='Enter')doLogin()">
+          </div>
+          <button class="login-btn" id="login-pw-btn" onclick="doLogin()" style="background:var(--grey)">Sign In with Password</button>
+        </div>
       </div>
-      <div class="login-field">
-        <label for="login-password">Password</label>
-        <input type="password" id="login-password" placeholder="Enter your password"
-          onkeydown="if(event.key==='Enter')doLogin()">
+
+      <!-- Step 2: OTP entry -->
+      <div id="login-step-2" style="display:none">
+        <div class="login-field">
+          <label for="login-otp">6-digit code</label>
+          <input type="text" id="login-otp" placeholder="Enter the code from your email"
+            maxlength="6" inputmode="numeric" autocomplete="one-time-code"
+            style="font-size:22px;letter-spacing:6px;text-align:center"
+            onkeydown="if(event.key==='Enter')verifyOtp()">
+        </div>
+        <div class="login-err" id="login-otp-err"></div>
+        <button class="login-btn" id="login-otp-btn" onclick="verifyOtp()">Sign In</button>
+        <div style="text-align:center;margin-top:12px">
+          <a href="#" style="font-size:12px;color:var(--grey)" onclick="backToStep1(event)">← Back / resend code</a>
+        </div>
       </div>
-      <div class="login-err" id="login-err"></div>
-      <button class="login-btn" id="login-btn" onclick="doLogin()">Sign In</button>
-      <div class="login-hint">Contact your administrator if you need access.</div>
+
     </div>
   </div>
 </div>
@@ -974,8 +1002,87 @@ function btnReset(btn) {
   if (btn._qs_orig !== undefined) { btn.innerHTML = btn._qs_orig; delete btn._qs_orig; }
 }
 
-async function doLogin() {
+// ── OTP login flow ────────────────────────────────────────────────────────────
+let _otpUsername = "";
+
+async function requestOtp() {
   const btn = document.getElementById("login-btn");
+  const err = document.getElementById("login-err");
+  const username = document.getElementById("login-username").value.trim();
+  err.textContent = "";
+  if (!username) { err.textContent = "Enter your username."; return; }
+  btnLoad(btn, "Sending code…");
+  try {
+    const fd = new FormData();
+    fd.append("username", username);
+    const res = await fetch("/api/auth/request-otp", { method: "POST", body: fd });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      err.textContent = d.detail || `Error (${res.status}). Try again.`;
+      return;
+    }
+    _otpUsername = username;
+    document.getElementById("login-step-1").style.display = "none";
+    document.getElementById("login-step-2").style.display = "";
+    document.getElementById("login-otp").focus();
+    document.getElementById("login-otp-err").textContent = "";
+    document.getElementById("login-otp").value = "";
+    // Show admin password fallback link only for the admin user
+    document.getElementById("admin-pw-toggle").style.display = "";
+    document.getElementById("admin-pw-wrap").style.display = "none";
+  } catch(e) {
+    err.textContent = "Network error. Please try again.";
+  } finally {
+    btnReset(btn);
+  }
+}
+
+async function verifyOtp() {
+  const btn  = document.getElementById("login-otp-btn");
+  const err  = document.getElementById("login-otp-err");
+  const code = document.getElementById("login-otp").value.trim();
+  err.textContent = "";
+  if (!code) { err.textContent = "Enter the 6-digit code."; return; }
+  btnLoad(btn, "Verifying…");
+  try {
+    const fd = new FormData();
+    fd.append("username", _otpUsername);
+    fd.append("code", code);
+    const res = await fetch("/api/auth/verify-otp", { method: "POST", body: fd });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      err.textContent = d.detail || "Invalid or expired code. Try again.";
+      return;
+    }
+    currentUser = await res.json();
+    document.getElementById("login-otp").value = "";
+    renderNav();
+    await loadCalibration();
+    loadPastJds();
+    showScreen("setup");
+  } catch(e) {
+    err.textContent = "Network error. Please try again.";
+  } finally {
+    btnReset(btn);
+  }
+}
+
+function backToStep1(e) {
+  e && e.preventDefault();
+  document.getElementById("login-step-2").style.display = "none";
+  document.getElementById("login-step-1").style.display = "";
+  document.getElementById("login-err").textContent = "";
+}
+
+function toggleAdminPw(e) {
+  e && e.preventDefault();
+  const wrap = document.getElementById("admin-pw-wrap");
+  wrap.style.display = wrap.style.display === "none" ? "" : "none";
+}
+
+// Admin password fallback (kept for admin user only)
+async function doLogin() {
+  const btn = document.getElementById("login-pw-btn");
   const err = document.getElementById("login-err");
   const username = document.getElementById("login-username").value.trim();
   const password = document.getElementById("login-password").value;

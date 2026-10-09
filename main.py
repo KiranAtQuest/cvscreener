@@ -45,6 +45,35 @@ async def login(
     )
     return resp
 
+@app.post("/api/auth/request-otp")
+async def request_otp(username: str = Form(...)):
+    user = _auth.get_user_by_username(username.strip())
+    if not user or not user.get("email"):
+        # Don't reveal whether user exists
+        return JSONResponse({"ok": True})
+    code = _auth.issue_otp(user["username"])
+    try:
+        _auth.send_otp_email(user["email"], user["username"], code)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not send email: {e}")
+    return JSONResponse({"ok": True})
+
+@app.post("/api/auth/verify-otp")
+async def verify_otp(username: str = Form(...), code: str = Form(...)):
+    user = _auth.get_user_by_username(username.strip())
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid code or code has expired.")
+    if not _auth.verify_otp(user["username"], code.strip()):
+        raise HTTPException(status_code=401, detail="Invalid code or code has expired.")
+    token = _auth.make_token(user["username"], user["role"])
+    resp = JSONResponse({"username": user["username"], "role": user["role"], "email": user["email"]})
+    resp.set_cookie(
+        "qs_token", token,
+        httponly=True, samesite="lax", secure=False,
+        max_age=_auth.JWT_EXPIRE_H * 3600,
+    )
+    return resp
+
 @app.post("/api/auth/logout")
 async def logout():
     resp = JSONResponse({"ok": True})

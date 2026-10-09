@@ -1,5 +1,6 @@
-import os, contextlib
+import os, contextlib, secrets, smtplib
 from datetime import datetime, timedelta
+from email.mime.text import MIMEText
 from typing import Optional
 
 import bcrypt
@@ -8,10 +9,16 @@ from psycopg2.extras import RealDictCursor
 from jose import jwt, JWTError
 from fastapi import Cookie, HTTPException
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
-JWT_SECRET   = os.environ.get("JWT_SECRET", "dev-secret-change-me")
-JWT_ALG      = "HS256"
-JWT_EXPIRE_H = 12
+DATABASE_URL    = os.environ.get("DATABASE_URL", "")
+JWT_SECRET      = os.environ.get("JWT_SECRET", "dev-secret-change-me")
+JWT_ALG         = "HS256"
+JWT_EXPIRE_H    = 12
+SMTP_HOST       = os.environ.get("SMTP_HOST", "")
+SMTP_PORT       = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER       = os.environ.get("SMTP_USER", "")
+SMTP_PASS       = os.environ.get("SMTP_PASS", "")
+SMTP_FROM       = os.environ.get("SMTP_FROM", SMTP_USER)
+OTP_EXPIRE_MIN  = 10
 
 
 def _hash_pw(plain: str) -> str:
@@ -99,6 +106,16 @@ def init_db():
                     created_at TIMESTAMPTZ DEFAULT NOW()
                 )
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS login_otps (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT NOT NULL,
+                    otp_code TEXT NOT NULL,
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    used BOOLEAN NOT NULL DEFAULT FALSE,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
             # Ensure column defaults exist (may be missing on older deployments)
             cur.execute("ALTER TABLE users ALTER COLUMN created_at SET DEFAULT NOW()")
             cur.execute("ALTER TABLE users ALTER COLUMN active SET DEFAULT TRUE")
@@ -159,6 +176,65 @@ def login_user(username: str, password: str):
     if not user or not verify_password(password, user["pw_hash"]):
         return None
     return dict(user)
+
+
+# ── OTP login ──────────────────────────────────────────────────────────────────
+
+def get_user_by_username(username: str):
+    with _conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, username, email, role, active FROM users WHERE username=%s AND active=TRUE", (username,))
+            row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def issue_otp(username: str) -> str:
+    """Generate a 6-digit OTP, store it, and return the code (caller sends the email)."""
+    code = f"{secrets.randbelow(900000) + 100000}"
+    with _conn() as conn:
+        with conn.cursor() as cur:
+            # Invalidate previous unused OTPs for this user
+            cur.execute("UPDATE login_otps SET used=TRUE WHERE username=%s AND used=FALSE", (username,))
+            cur.execute(
+                "INSERT INTO login_otps (username, otp_code, expires_at) VALUES (%s, %s, NOW() + INTERVAL '%s minutes')",
+                (username, code, OTP_EXPIRE_MIN)
+            )
+    return code
+
+
+def verify_otp(username: str, code: str) -> bool:
+    with _conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id FROM login_otps
+                WHERE username=%s AND otp_code=%s AND used=FALSE AND expires_at > NOW()
+            """, (username, code))
+            row = cur.fetchone()
+            if not row:
+                return False
+            cur.execute("UPDATE login_otps SET used=TRUE WHERE id=%s", (row["id"],))
+    return True
+
+
+def send_otp_email(to_email: str, username: str, code: str):
+    if not SMTP_HOST or not SMTP_USER:
+        raise RuntimeError("SMTP not configured — set SMTP_HOST, SMTP_USER, SMTP_PASS env vars.")
+    body = (
+        f"Hi {username},\n\n"
+        f"Your CV Screener login code is:\n\n"
+        f"  {code}\n\n"
+        f"This code expires in {OTP_EXPIRE_MIN} minutes. Do not share it.\n\n"
+        f"— Quest Alliance CV Screener"
+    )
+    msg = MIMEText(body)
+    msg["Subject"] = f"{code} — your CV Screener login code"
+    msg["From"]    = SMTP_FROM
+    msg["To"]      = to_email
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as smtp:
+        smtp.ehlo()
+        smtp.starttls()
+        smtp.login(SMTP_USER, SMTP_PASS)
+        smtp.send_message(msg)
 
 
 # ── User management ────────────────────────────────────────────────────────────
