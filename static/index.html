@@ -598,14 +598,14 @@ textarea { min-height: 140px; line-height: 1.5; }
         <div class="login-err" id="login-err"></div>
         <button class="login-btn" id="login-btn" onclick="requestOtp()">Send Login Code</button>
         <div class="login-hint">A 6-digit code will be emailed to your registered address.</div>
-        <!-- Admin password fallback (hidden by default) -->
-        <div id="admin-pw-toggle" style="text-align:center;margin-top:12px;display:none">
-          <a href="#" style="font-size:12px;color:var(--grey)" onclick="toggleAdminPw(event)">Admin password login</a>
+        <!-- Password fallback — always visible as a small link -->
+        <div style="text-align:center;margin-top:16px">
+          <a href="#" style="font-size:12px;color:var(--grey);text-decoration:none;border-bottom:1px dashed var(--border)" onclick="toggleAdminPw(event)">Login with password instead</a>
         </div>
-        <div id="admin-pw-wrap" style="display:none;margin-top:12px">
+        <div id="admin-pw-wrap" style="display:none;margin-top:14px">
           <div class="login-field" style="margin-bottom:8px">
             <label for="login-password">Password</label>
-            <input type="password" id="login-password" placeholder="Admin password"
+            <input type="password" id="login-password" placeholder="Enter your password"
               onkeydown="if(event.key==='Enter')doLogin()">
           </div>
           <button class="login-btn" id="login-pw-btn" onclick="doLogin()" style="background:var(--grey)">Sign In with Password</button>
