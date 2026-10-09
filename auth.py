@@ -2,9 +2,9 @@ import os, contextlib
 from datetime import datetime, timedelta
 from typing import Optional
 
+import bcrypt
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from passlib.context import CryptContext
 from jose import jwt, JWTError
 from fastapi import Cookie, HTTPException
 
@@ -13,7 +13,15 @@ JWT_SECRET   = os.environ.get("JWT_SECRET", "dev-secret-change-me")
 JWT_ALG      = "HS256"
 JWT_EXPIRE_H = 12
 
-pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def _hash_pw(plain: str) -> str:
+    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt(12)).decode()
+
+def _verify_pw(plain: str, hashed: str) -> bool:
+    try:
+        return bcrypt.checkpw(plain.encode(), hashed.encode())
+    except Exception:
+        return False
 
 
 @contextlib.contextmanager
@@ -100,7 +108,7 @@ def init_db():
             if not cur.fetchone():
                 cur.execute(
                     "INSERT INTO users (username, email, pw_hash, role) VALUES (%s,%s,%s,%s)",
-                    ("admin", "admin@questalliance.net", pwd_ctx.hash("changeme123"), "admin")
+                    ("admin", "admin@questalliance.net", _hash_pw("changeme123"), "admin")
                 )
 
 
@@ -140,7 +148,7 @@ def require_admin(qs_token: Optional[str] = Cookie(None)):
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_ctx.verify(plain, hashed)
+    return _verify_pw(plain, hashed)
 
 
 def login_user(username: str, password: str):
@@ -167,14 +175,14 @@ def create_user(username: str, email: str, password: str, role: str):
         with conn.cursor() as cur:
             cur.execute(
                 "INSERT INTO users (username, email, pw_hash, role, active) VALUES (%s,%s,%s,%s,TRUE) RETURNING id",
-                (username, email, pwd_ctx.hash(password), role)
+                (username, email, _hash_pw(password), role)
             )
             return cur.fetchone()["id"]
 
 
 def update_user(uid: int, **fields):
     if "password" in fields:
-        fields["pw_hash"] = pwd_ctx.hash(fields.pop("password"))
+        fields["pw_hash"] = _hash_pw(fields.pop("password"))
     sets = ", ".join(f"{k}=%s" for k in fields)
     vals = list(fields.values()) + [uid]
     with _conn() as conn:
