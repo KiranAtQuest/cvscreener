@@ -180,10 +180,13 @@ def login_user(username: str, password: str):
 
 # ── OTP login ──────────────────────────────────────────────────────────────────
 
-def get_user_by_username(username: str):
+def get_user_by_username(username_or_email: str):
     with _conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, username, email, role, active FROM users WHERE username=%s AND active=TRUE", (username,))
+            cur.execute(
+                "SELECT id, username, email, role, active FROM users WHERE (username=%s OR email=%s) AND active=TRUE",
+                (username_or_email, username_or_email)
+            )
             row = cur.fetchone()
     return dict(row) if row else None
 
