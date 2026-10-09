@@ -33,6 +33,14 @@ services:
         sync: false
       - key: ZOHO_RECRUIT_URL
         sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
 
   - type: cron
     name: zoho-drive-sync
