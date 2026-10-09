@@ -91,8 +91,10 @@ def init_db():
                     created_at TIMESTAMPTZ DEFAULT NOW()
                 )
             """)
-            # Ensure created_at has a default (may be missing on older deployments)
+            # Ensure column defaults exist (may be missing on older deployments)
             cur.execute("ALTER TABLE users ALTER COLUMN created_at SET DEFAULT NOW()")
+            cur.execute("ALTER TABLE users ALTER COLUMN active SET DEFAULT TRUE")
+            cur.execute("UPDATE users SET active=TRUE WHERE active IS NULL")
             # Seed default admin
             cur.execute("SELECT id FROM users WHERE username = 'admin'")
             if not cur.fetchone():
@@ -164,7 +166,7 @@ def create_user(username: str, email: str, password: str, role: str):
     with _conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO users (username, email, pw_hash, role) VALUES (%s,%s,%s,%s) RETURNING id",
+                "INSERT INTO users (username, email, pw_hash, role, active) VALUES (%s,%s,%s,%s,TRUE) RETURNING id",
                 (username, email, pwd_ctx.hash(password), role)
             )
             return cur.fetchone()["id"]
