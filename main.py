@@ -922,6 +922,14 @@ def load_salary_from_manifest(service) -> dict:
         return {}
 
 
+@app.get("/api/drive/salary-map")
+async def drive_salary_map(qs_token: Optional[str] = Cookie(default=None)):
+    """Return {candidate_id: salary} from the most recent manifest CSV in Drive."""
+    _auth.get_current_user(qs_token)
+    service = get_drive_service()
+    return load_salary_from_manifest(service)
+
+
 @app.get("/api/drive/files")
 async def drive_list_files(
     from_date: str = "",

@@ -978,6 +978,7 @@ async function initAuth() {
       renderNav();
       await loadCalibration();
       loadPastJds();
+      fetch('/api/drive/salary-map').then(r => r.ok ? r.json() : {}).then(m => { driveSalaryMap = m || {}; }).catch(() => {});
       showScreen("setup");
     } else {
       showScreen("login");
@@ -1499,14 +1500,19 @@ function addFiles(newFiles) {
 
 function renderFileList() {
   const el = document.getElementById("file-list");
-  el.innerHTML = state.files.map((f, i) =>
-    `<div class="file-chip">
+  el.innerHTML = state.files.map((f, i) => {
+    // If filename matches Drive sync format {numeric_id}_... look up salary
+    const parts = f.name.split('_');
+    const cid = parts.length >= 4 && /^\d+$/.test(parts[0]) ? parts[0] : '';
+    const salary = cid ? (driveSalaryMap[cid] || '') : '';
+    return `<div class="file-chip">
       <span>📄</span>
       <span class="fc-name">${f.name}</span>
+      ${salary ? `<span style="font-size:11px;background:#E8F5E9;color:#2E7D32;padding:2px 7px;border-radius:4px;flex-shrink:0" title="Current salary from Zoho (as entered)">💰 ${salary}</span>` : ''}
       <span class="fc-size">${fmtSize(f.size)}</span>
       <button class="fc-del" onclick="removeFile(${i})">×</button>
-    </div>`
-  ).join("");
+    </div>`;
+  }).join("");
 }
 
 function removeFile(i) {
@@ -1635,8 +1641,9 @@ function driveDefaultDates() {
   if (!toEl.value)   toEl.value   = fmt(today);
 }
 
-let driveAllFiles = []; // all files from Drive with role info
-let driveRoleMap  = {}; // {candidate_id: posting_title}
+let driveAllFiles  = []; // all files from Drive with role info
+let driveRoleMap   = {}; // {candidate_id: posting_title}
+let driveSalaryMap = {}; // {candidate_id: current_salary}
 
 async function loadDriveFiles() {
   driveDefaultDates();
@@ -1653,9 +1660,13 @@ async function loadDriveFiles() {
   statusEl.textContent = '';
   btnLoad(btn, "Loading…");
   try {
-    const res = await fetch(`/api/drive/files?from_date=${from}&to_date=${to}`);
+    const [res, salRes] = await Promise.all([
+      fetch(`/api/drive/files?from_date=${from}&to_date=${to}`),
+      fetch('/api/drive/salary-map'),
+    ]);
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || res.statusText);
+    driveSalaryMap = salRes.ok ? (await salRes.json()) : {};
     const files = data.files || [];
     driveAllFiles = files;
 
@@ -1751,12 +1762,15 @@ function filterDriveByRole() {
     return;
   }
   listEl.innerHTML = filtered.map(f => {
-    const role = driveRoleMap[f.name.split('_')[0]] || '';
+    const cid = f.name.split('_')[0];
+    const role   = driveRoleMap[cid]   || '';
+    const salary = driveSalaryMap[cid] || '';
     const displayName = f.name.length > 70 ? f.name.slice(0, 67) + '…' : f.name;
     return `<div class="drive-file-item" title="${f.name}">
       <span style="color:var(--blue);flex-shrink:0">📄</span>
       <span class="drive-file-name">${displayName}</span>
-      ${role ? `<span class="drive-file-role">${role}</span>` : ''}
+      ${role   ? `<span class="drive-file-role">${role}</span>` : ''}
+      ${salary ? `<span class="drive-file-role" style="background:#E8F5E9;color:#2E7D32" title="Current salary (as entered — may be monthly or annual)">💰 ${salary}</span>` : ''}
       <span class="drive-file-date">${f.createdTime ? f.createdTime.slice(0,10) : ''}</span>
     </div>`;
   }).join('');
