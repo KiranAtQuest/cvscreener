@@ -806,6 +806,9 @@ textarea { min-height: 140px; line-height: 1.5; }
         <div style="margin-bottom:12px">
           <label>Role Title</label>
           <input type="text" id="role-title" placeholder="e.g. Programme Manager – Skilling">
+          <div id="role-title-hint" style="font-size:11px;color:var(--grey);margin-top:4px;display:none">
+            🔒 Set from Drive role filter — clear the filter above to change.
+          </div>
         </div>
         <label for="jd-input">Job Description</label>
         <textarea id="jd-input" placeholder="Paste the full job description here, or upload a file above…" rows="7" oninput="onJdChange()"></textarea>
@@ -1710,6 +1713,26 @@ function filterDriveByRole() {
   const statusEl  = document.getElementById('drive-status');
   const listEl    = document.getElementById('drive-file-list');
   const countEl   = document.getElementById('drive-role-count');
+
+  // Auto-fill role title from Drive role filter
+  const roleTitleInput = document.getElementById('role-title');
+  if (selectedRole) {
+    roleTitleInput.value = selectedRole;
+    roleTitleInput.readOnly = true;
+    roleTitleInput.style.background = '#F0F4F8';
+    roleTitleInput.style.color = 'var(--grey)';
+    roleTitleInput.title = 'Role set from Drive filter — clear the role filter above to edit';
+  } else {
+    roleTitleInput.readOnly = false;
+    roleTitleInput.style.background = '';
+    roleTitleInput.style.color = '';
+    roleTitleInput.title = '';
+    // Only clear if it was auto-filled (don't wipe manually entered text)
+    if (roleTitleInput.dataset.autoFilled) roleTitleInput.value = '';
+  }
+  roleTitleInput.dataset.autoFilled = selectedRole ? 'true' : '';
+  document.getElementById('role-title-hint').style.display = selectedRole ? '' : 'none';
+
 
   const filtered = selectedRole
     ? driveAllFiles.filter(f => (driveRoleMap[f.name.split('_')[0]] || '') === selectedRole)
