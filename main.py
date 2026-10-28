@@ -922,6 +922,27 @@ def load_salary_from_manifest(service) -> dict:
         return {}
 
 
+@app.get("/api/drive/debug")
+async def drive_debug(qs_token: Optional[str] = Cookie(default=None)):
+    """Return raw file count and mimeType breakdown for the Drive folder — admin only."""
+    _auth.require_admin(qs_token=qs_token)
+    folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
+    service = get_drive_service()
+    page = service.files().list(
+        q=f"'{folder_id}' in parents and trashed=false",
+        fields="files(id,name,mimeType,createdTime)",
+        pageSize=1000,
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True,
+    ).execute()
+    files = page.get("files", [])
+    from collections import Counter
+    mime_counts = dict(Counter(f["mimeType"] for f in files))
+    ext_counts  = dict(Counter(os.path.splitext(f["name"].lower())[1] for f in files))
+    return {"total": len(files), "mime_types": mime_counts, "extensions": ext_counts,
+            "sample": files[:5]}
+
+
 @app.get("/api/drive/salary-map")
 async def drive_salary_map(qs_token: Optional[str] = Cookie(default=None)):
     """Return {candidate_id: salary} from the most recent manifest CSV in Drive."""
@@ -952,21 +973,20 @@ async def drive_list_files(
     from_ts = f"{from_date}T00:00:00Z"
     to_ts   = f"{to_date}T23:59:59Z"
 
+    ALLOWED_EXTS = {".pdf", ".doc", ".docx", ".rtf", ".odt", ".txt"}
+
     service = get_drive_service()
+    # No mimeType filter — sync.py may store files as application/octet-stream.
+    # Filter by extension in Python instead.
     q = (
         f"'{folder_id}' in parents"
         f" and createdTime >= '{from_ts}'"
         f" and createdTime <= '{to_ts}'"
         f" and trashed = false"
-        f" and (mimeType='application/pdf'"
-        f" or mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document'"
-        f" or mimeType='application/msword'"
-        f" or mimeType='text/plain'"
-        f" or mimeType='application/rtf'"
-        f" or mimeType='application/vnd.oasis.opendocument.text')"
+        f" and mimeType != 'application/vnd.google-apps.folder'"
     )
     # Paginate to get all files (Drive returns max 1000 per page)
-    files = []
+    all_files = []
     page_token = None
     while True:
         kwargs = dict(
@@ -980,11 +1000,15 @@ async def drive_list_files(
         if page_token:
             kwargs["pageToken"] = page_token
         page = service.files().list(**kwargs).execute()
-        files.extend(page.get("files", []))
+        all_files.extend(page.get("files", []))
         page_token = page.get("nextPageToken")
         if not page_token:
             break
-    return {"files": files, "from_date": from_date, "to_date": to_date, "count": len(files)}
+    # Filter to CV file extensions only
+    files = [f for f in all_files
+             if os.path.splitext(f.get("name", "").lower())[1] in ALLOWED_EXTS]
+    return {"files": files, "from_date": from_date, "to_date": to_date,
+            "count": len(files), "total_in_folder": len(all_files)}
 
 
 class DriveScreenBody(BaseModel):
