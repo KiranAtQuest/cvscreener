@@ -196,8 +196,8 @@ def issue_otp(username: str) -> str:
             # Invalidate previous unused OTPs for this user
             cur.execute("UPDATE login_otps SET used=TRUE WHERE username=%s AND used=FALSE", (username,))
             cur.execute(
-                "INSERT INTO login_otps (username, otp_code, expires_at) VALUES (%s, %s, NOW() + INTERVAL '%s minutes')",
-                (username, code, OTP_EXPIRE_MIN)
+                f"INSERT INTO login_otps (username, otp_code, expires_at) VALUES (%s, %s, NOW() + INTERVAL '{OTP_EXPIRE_MIN} minutes')",
+                (username, code)
             )
     return code
 
