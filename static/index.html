@@ -1633,11 +1633,11 @@ function switchUploadTab(tab) {
 
 function driveDefaultDates() {
   const today = new Date();
-  const sevenDaysAgo = new Date(today); sevenDaysAgo.setDate(today.getDate() - 7);
+  const ninetyDaysAgo = new Date(today); ninetyDaysAgo.setDate(today.getDate() - 90);
   const fmt = d => d.toISOString().slice(0, 10);
   const fromEl = document.getElementById('drive-from');
   const toEl   = document.getElementById('drive-to');
-  if (!fromEl.value) fromEl.value = fmt(sevenDaysAgo);
+  if (!fromEl.value) fromEl.value = fmt(ninetyDaysAgo);
   if (!toEl.value)   toEl.value   = fmt(today);
 }
 

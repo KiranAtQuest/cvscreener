@@ -941,10 +941,10 @@ async def drive_list_files(
     if not folder_id:
         raise HTTPException(status_code=500, detail="GOOGLE_DRIVE_FOLDER_ID not configured on server.")
 
-    # Defaults: last 7 days (generous window covers timezone offsets and weekends)
+    # Defaults: last 90 days
     today = datetime.now(timezone.utc).date()
     if not from_date:
-        from_date = (today - timedelta(days=7)).isoformat()
+        from_date = (today - timedelta(days=90)).isoformat()
     if not to_date:
         to_date = today.isoformat()
 
@@ -965,15 +965,25 @@ async def drive_list_files(
         f" or mimeType='application/rtf'"
         f" or mimeType='application/vnd.oasis.opendocument.text')"
     )
-    results = service.files().list(
-        q=q,
-        fields="files(id,name,createdTime,size,mimeType)",
-        orderBy="createdTime desc",
-        pageSize=500,
-        supportsAllDrives=True,
-        includeItemsFromAllDrives=True,
-    ).execute()
-    files = results.get("files", [])
+    # Paginate to get all files (Drive returns max 1000 per page)
+    files = []
+    page_token = None
+    while True:
+        kwargs = dict(
+            q=q,
+            fields="nextPageToken,files(id,name,createdTime,size,mimeType)",
+            orderBy="createdTime desc",
+            pageSize=1000,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        )
+        if page_token:
+            kwargs["pageToken"] = page_token
+        page = service.files().list(**kwargs).execute()
+        files.extend(page.get("files", []))
+        page_token = page.get("nextPageToken")
+        if not page_token:
+            break
     return {"files": files, "from_date": from_date, "to_date": to_date, "count": len(files)}
 
 
