@@ -41,7 +41,7 @@ services:
   - type: cron
     name: zoho-drive-sync
     runtime: python
-    schedule: "0 * * * *"
+    schedule: "0 */2 * * *"
     buildCommand: pip install -r requirements.txt
     startCommand: python sync.py
     envVars:

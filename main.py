@@ -334,6 +334,7 @@ filtered candidates at the end). Each object MUST have:
 - "gaps": array of 1-3 gap strings (for filtered, list the critical missing requirements)
 - "flag": one-sentence verification note, or null
 - "evidence": array of 2-3 objects with "label" and "text" — empty [] for filtered candidates
+- "current_salary": candidate's current/last drawn salary as stated in the CV, or "" if not mentioned
 
 Return ONLY the JSON array, no markdown fences."""
 

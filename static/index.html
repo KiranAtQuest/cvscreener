@@ -899,11 +899,19 @@ textarea { min-height: 140px; line-height: 1.5; }
         <span id="level2-count" class="level-count"></span>
       </div>
       <p class="level-desc">These candidates meet the minimum threshold (≥30% match). Rank and shortlist for the hiring manager.</p>
-      <div class="filter-bar">
+      <div class="filter-bar" style="align-items:center">
         <button class="filter-btn active" onclick="setFilter('all', this)">All eligible</button>
         <button class="filter-btn" onclick="setFilter('shortlisted', this)">Shortlisted</button>
         <button class="filter-btn" onclick="setFilter('pending', this)">Pending</button>
         <button class="filter-btn" onclick="setFilter('rejected', this)">Rejected</button>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+          <label style="font-size:12px;font-weight:600;color:var(--grey);white-space:nowrap">Sort by</label>
+          <select id="sort-select" onchange="renderResults()" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:12px;background:#fff">
+            <option value="rank">Rank (default)</option>
+            <option value="salary_asc">Salary ↑ (low to high)</option>
+            <option value="salary_desc">Salary ↓ (high to low)</option>
+          </select>
+        </div>
       </div>
       <div class="candidate-grid" id="candidate-grid"></div>
       <div id="no-eligible" style="display:none;padding:32px;text-align:center;color:var(--grey);background:#fff;border-radius:var(--radius);border:1px solid var(--border)">
@@ -2018,6 +2026,30 @@ function renderResults() {
   else if (state.currentFilter === "rejected") visible = eligible.filter(r => getDecision(r) === false);
   else if (state.currentFilter === "pending")  visible = eligible.filter(r => getDecision(r) == null);
 
+  // Apply sort
+  const sortVal = (document.getElementById("sort-select") || {}).value || "rank";
+  function parseSalary(r) {
+    const s = (r.current_salary || "").replace(/[^\d.]/g, "");
+    return s ? parseFloat(s) : null;
+  }
+  if (sortVal === "salary_asc") {
+    visible = [...visible].sort((a, b) => {
+      const sa = parseSalary(a), sb = parseSalary(b);
+      if (sa == null && sb == null) return 0;
+      if (sa == null) return 1;
+      if (sb == null) return -1;
+      return sa - sb;
+    });
+  } else if (sortVal === "salary_desc") {
+    visible = [...visible].sort((a, b) => {
+      const sa = parseSalary(a), sb = parseSalary(b);
+      if (sa == null && sb == null) return 0;
+      if (sa == null) return 1;
+      if (sb == null) return -1;
+      return sb - sa;
+    });
+  }
+
   document.getElementById("no-eligible").style.display = eligible.length === 0 ? "" : "none";
   const grid = document.getElementById("candidate-grid");
   grid.innerHTML = visible.map(r => candidateCardHTML(r, false)).join("");
@@ -2050,6 +2082,7 @@ function candidateCardHTML(r, isFiltered) {
         <div class="cc-meta">
           ${r.years != null ? `<span>⏱ ${r.years} yrs</span>` : ""}
           ${r.location ? `<span>📍 ${r.location}</span>` : ""}
+          ${r.current_salary ? `<span>💰 ${r.current_salary}</span>` : ""}
           ${isFiltered ? `<span style="color:var(--grey)">⛔ Below threshold</span>` : ""}
         </div>
       </div>
@@ -2123,6 +2156,7 @@ function renderDetail(idx) {
         <div class="dh-meta">
           ${r.years != null ? `<div class="meta-pill">⏱ ${r.years} yrs exp</div>` : ""}
           ${r.location ? `<div class="meta-pill">📍 ${r.location}</div>` : ""}
+          ${r.current_salary ? `<div class="meta-pill">💰 ${r.current_salary}</div>` : ""}
           ${r.email ? `<div class="meta-pill">✉ ${r.email}</div>` : ""}
           ${r.phone ? `<div class="meta-pill">📞 ${r.phone}</div>` : ""}
         </div>

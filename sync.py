@@ -145,7 +145,7 @@ def upload_manifest(drive, records):
     out = io.StringIO()
     writer = csv.DictWriter(out, fieldnames=[
         "Candidate_ID", "Candidate_Name", "Position_Title", "Position_ID",
-        "CV_File_Name", "Attachment_Created_Time", "Drive_File_ID", "Drive_URL",
+        "Current_Salary", "CV_File_Name", "Attachment_Created_Time", "Drive_File_ID", "Drive_URL",
     ])
     writer.writeheader()
     writer.writerows(records)
@@ -175,6 +175,10 @@ def main():
         cid  = str(cand["id"])
         name = str(cand.get("Full_Name") or cand.get("Last_Name") or "Candidate").strip()
 
+        # Current Salary from $formatted_currency
+        fmt_currency = cand.get("$formatted_currency") or {}
+        current_salary = str(fmt_currency.get("Current_Salary", "") if isinstance(fmt_currency, dict) else "").strip()
+
         # Refresh token per candidate to avoid expiry on large runs
         token = get_zoho_token()
 
@@ -185,7 +189,7 @@ def main():
             print(f"  WARNING: could not get position for {name}: {e}")
             position_title, position_id = "Unassigned", ""
 
-        print(f"\nCandidate: {name}  (ID: {cid})  Position: {position_title}")
+        print(f"\nCandidate: {name}  (ID: {cid})  Position: {position_title}  Salary: {current_salary}")
 
         # Fetch attachments
         try:
@@ -235,6 +239,7 @@ def main():
                     "Candidate_Name":          name,
                     "Position_Title":          position_title,
                     "Position_ID":             position_id,
+                    "Current_Salary":          current_salary,
                     "CV_File_Name":            drive_name,
                     "Attachment_Created_Time": created.isoformat(),
                     "Drive_File_ID":           f["id"],
