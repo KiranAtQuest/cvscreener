@@ -882,6 +882,46 @@ def get_drive_service():
     return build("drive", "v3", credentials=creds, cache_discovery=False)
 
 
+def load_salary_from_manifest(service) -> dict:
+    """Fetch the most-recent CV_Download_Manifest CSV from Drive and return {candidate_id: salary}."""
+    import csv as _csv
+    folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
+    if not folder_id:
+        return {}
+    try:
+        from googleapiclient.http import MediaIoBaseDownload as _DL
+        results = service.files().list(
+            q=f"'{folder_id}' in parents and name contains 'CV_Download_Manifest' and trashed=false",
+            fields="files(id,name,createdTime)",
+            orderBy="createdTime desc",
+            pageSize=1,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        ).execute()
+        files = results.get("files", [])
+        if not files:
+            return {}
+        fid = files[0]["id"]
+        buf = io.BytesIO()
+        req = service.files().get_media(fileId=fid)
+        dl = _DL(buf, req)
+        while True:
+            _, done = dl.next_chunk()
+            if done:
+                break
+        buf.seek(0)
+        reader = _csv.DictReader(io.TextIOWrapper(buf, encoding="utf-8-sig"))
+        mapping = {}
+        for row in reader:
+            cid = (row.get("Candidate_ID") or "").strip()
+            sal = (row.get("Current_Salary") or "").strip()
+            if cid and sal:
+                mapping[cid] = sal
+        return mapping
+    except Exception:
+        return {}
+
+
 @app.get("/api/drive/files")
 async def drive_list_files(
     from_date: str = "",
@@ -987,6 +1027,18 @@ async def drive_screen(body: DriveScreenBody, qs_token: Optional[str] = Cookie(d
         results = extract_json(raw)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Could not parse Claude response: {e}\n\n{raw[:500]}")
+
+    # Overlay salary from Drive manifest (Zoho data, more reliable than CV text extraction)
+    salary_map = load_salary_from_manifest(service)
+    if salary_map:
+        for r in results:
+            fname = r.get("filename", "")
+            # Filename format: {candidate_id}_{position}_{name}_{file}
+            cid = fname.split("_")[0] if fname else ""
+            if cid and cid in salary_map:
+                r["current_salary"] = salary_map[cid]
+                r["salary_source"] = "zoho"
+
     return {"results": results, "truncated": truncated, "past_examples_used": len(past_examples)}
 
 

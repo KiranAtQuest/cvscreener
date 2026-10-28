@@ -2105,7 +2105,7 @@ function candidateCardHTML(r, isFiltered) {
         <div class="cc-meta">
           ${r.years != null ? `<span>⏱ ${r.years} yrs</span>` : ""}
           ${r.location ? `<span>📍 ${r.location}</span>` : ""}
-          ${r.current_salary ? `<span>💰 ${r.current_salary}</span>` : ""}
+          ${r.current_salary ? `<span title="${r.salary_source === 'zoho' ? 'From Zoho (as entered — monthly or annual)' : 'Extracted from CV — may be monthly or annual'}">💰 ${r.current_salary}</span>` : ""}
           ${isFiltered ? `<span style="color:var(--grey)">⛔ Below threshold</span>` : ""}
         </div>
       </div>
@@ -2179,7 +2179,7 @@ function renderDetail(idx) {
         <div class="dh-meta">
           ${r.years != null ? `<div class="meta-pill">⏱ ${r.years} yrs exp</div>` : ""}
           ${r.location ? `<div class="meta-pill">📍 ${r.location}</div>` : ""}
-          ${r.current_salary ? `<div class="meta-pill">💰 ${r.current_salary}</div>` : ""}
+          ${r.current_salary ? `<div class="meta-pill" title="${r.salary_source === 'zoho' ? 'From Zoho — as entered (monthly or annual)' : 'Extracted from CV — may be monthly or annual'}">💰 ${r.current_salary} <span style="font-size:10px;opacity:0.7">${r.salary_source === 'zoho' ? '(Zoho)' : '(CV)'}</span></div>` : ""}
           ${r.email ? `<div class="meta-pill">✉ ${r.email}</div>` : ""}
           ${r.phone ? `<div class="meta-pill">📞 ${r.phone}</div>` : ""}
         </div>
