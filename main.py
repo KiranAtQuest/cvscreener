@@ -876,8 +876,9 @@ def get_drive_service():
     from google.oauth2 import service_account
     from googleapiclient.discovery import build
     info = json.loads(sa_json)
+    print(f"[drive] using service account: {info.get('client_email', 'unknown')}")
     creds = service_account.Credentials.from_service_account_info(
-        info, scopes=["https://www.googleapis.com/auth/drive.readonly"]
+        info, scopes=["https://www.googleapis.com/auth/drive"]
     )
     return build("drive", "v3", credentials=creds, cache_discovery=False)
 
