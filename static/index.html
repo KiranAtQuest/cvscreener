@@ -741,7 +741,7 @@ textarea { min-height: 140px; line-height: 1.5; }
 
         <!-- Drive pane (default) -->
         <div id="pane-drive">
-          <div class="card-sub" style="margin-bottom:14px">Pull CVs from the linked Google Drive folder. Showing the last 7 days by default.</div>
+          <div class="card-sub" style="margin-bottom:14px">Pull CVs from the linked Google Drive folder. Showing the last 90 days by default.</div>
           <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap">
             <div style="flex:1;min-width:130px">
               <label style="font-size:12px;font-weight:600;color:var(--grey);display:block;margin-bottom:4px">From date</label>
@@ -1663,6 +1663,7 @@ async function loadDriveFiles() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || res.statusText);
     driveSalaryMap = salRes.ok ? (await salRes.json()) : {};
+    console.log('[salary-map] entries:', Object.keys(driveSalaryMap).length, 'sample:', JSON.stringify(Object.entries(driveSalaryMap).slice(0,3)));
     const files = data.files || [];
     driveAllFiles = files;
 

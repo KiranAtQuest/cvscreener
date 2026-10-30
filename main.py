@@ -892,19 +892,22 @@ def load_salary_from_manifest(service) -> dict:
         from googleapiclient.http import MediaIoBaseDownload as _DL
         results = service.files().list(
             q=f"'{folder_id}' in parents and name contains 'CV_Download_Manifest' and trashed=false",
-            fields="files(id,name,createdTime)",
+            fields="files(id,name,createdTime,mimeType)",
             orderBy="createdTime desc",
             pageSize=5,
             supportsAllDrives=True,
             includeItemsFromAllDrives=True,
         ).execute()
         files = results.get("files", [])
+        print(f"[salary-manifest] found {len(files)} manifest files")
         if not files:
             return {}
         # Try manifests newest-first; use first one that has a Current_Salary column
         for manifest_file in files:
             fid = manifest_file["id"]
+            fname = manifest_file.get("name", "")
             mime = manifest_file.get("mimeType", "")
+            print(f"[salary-manifest] trying {fname} (mime={mime})")
             buf = io.BytesIO()
             # Google Sheets files need export; plain CSV files use get_media
             if "vnd.google-apps" in mime:
@@ -916,19 +919,25 @@ def load_salary_from_manifest(service) -> dict:
                 _, done = dl.next_chunk()
                 if done:
                     break
+            size = buf.tell()
             buf.seek(0)
+            print(f"[salary-manifest] downloaded {size} bytes")
             reader = _csv.DictReader(io.TextIOWrapper(buf, encoding="utf-8-sig"))
             rows = list(reader)
+            cols = list(rows[0].keys()) if rows else []
+            print(f"[salary-manifest] rows={len(rows)} cols={cols}")
             if not rows:
                 continue
-            if "Current_Salary" not in rows[0].keys():
-                continue  # manifest without salary column — try next
+            if "Current_Salary" not in cols:
+                print(f"[salary-manifest] no Current_Salary column, skipping")
+                continue
             mapping = {}
             for row in rows:
                 cid = (row.get("Candidate_ID") or "").strip()
                 sal = (row.get("Current_Salary") or "").strip()
                 if cid and sal:
                     mapping[cid] = sal
+            print(f"[salary-manifest] mapped {len(mapping)} candidates with salary")
             if mapping:
                 return mapping
         return {}
