@@ -1079,9 +1079,6 @@ async def drive_list_files(
             fields="nextPageToken,files(id,name,createdTime,size,mimeType)",
             orderBy="createdTime desc",
             pageSize=1000,
-            supportsAllDrives=True,
-            includeItemsFromAllDrives=True,
-            corpora="allDrives",
         )
         if page_token:
             kwargs["pageToken"] = page_token
