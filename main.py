@@ -890,16 +890,27 @@ def load_salary_from_manifest(service) -> dict:
         return {}
     try:
         from googleapiclient.http import MediaIoBaseDownload as _DL
-        results = service.files().list(
-            q=f"'{folder_id}' in parents and name contains 'CV_Download_Manifest' and trashed=false",
-            fields="files(id,name,createdTime,mimeType)",
-            orderBy="createdTime desc",
-            pageSize=5,
-            supportsAllDrives=True,
-            includeItemsFromAllDrives=True,
-        ).execute()
-        files = results.get("files", [])
-        print(f"[salary-manifest] found {len(files)} manifest files")
+        # Search with name filter first; also try without to catch differently-named files
+        found = []
+        for q in [
+            f"'{folder_id}' in parents and name contains 'CV_Download_Manifest' and trashed=false",
+            f"'{folder_id}' in parents and name contains 'Manifest' and trashed=false",
+        ]:
+            r = service.files().list(
+                q=q,
+                fields="files(id,name,createdTime,mimeType)",
+                orderBy="createdTime desc",
+                pageSize=20,
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+            ).execute()
+            for f in r.get("files", []):
+                if not any(x["id"] == f["id"] for x in found):
+                    found.append(f)
+        # Sort newest first
+        found.sort(key=lambda f: f.get("createdTime", ""), reverse=True)
+        files = found
+        print(f"[salary-manifest] found {len(files)} manifest files: {[f['name'] for f in files]}")
         if not files:
             return {}
         # Try manifests newest-first; use first one that has a Current_Salary column
