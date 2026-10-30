@@ -904,8 +904,13 @@ def load_salary_from_manifest(service) -> dict:
         # Try manifests newest-first; use first one that has a Current_Salary column
         for manifest_file in files:
             fid = manifest_file["id"]
+            mime = manifest_file.get("mimeType", "")
             buf = io.BytesIO()
-            req = service.files().get_media(fileId=fid)
+            # Google Sheets files need export; plain CSV files use get_media
+            if "vnd.google-apps" in mime:
+                req = service.files().export_media(fileId=fid, mimeType="text/csv")
+            else:
+                req = service.files().get_media(fileId=fid)
             dl = _DL(buf, req)
             while True:
                 _, done = dl.next_chunk()
@@ -916,8 +921,8 @@ def load_salary_from_manifest(service) -> dict:
             rows = list(reader)
             if not rows:
                 continue
-            if "Current_Salary" not in (rows[0].keys() if rows else []):
-                continue  # old manifest without salary column — try next
+            if "Current_Salary" not in rows[0].keys():
+                continue  # manifest without salary column — try next
             mapping = {}
             for row in rows:
                 cid = (row.get("Candidate_ID") or "").strip()
@@ -984,7 +989,10 @@ async def drive_salary_map_debug(qs_token: Optional[str] = Cookie(default=None))
         info = {"id": f["id"], "name": f["name"], "createdTime": f["createdTime"], "mimeType": f["mimeType"]}
         try:
             buf = io.BytesIO()
-            req = service.files().get_media(fileId=f["id"])
+            if "vnd.google-apps" in f.get("mimeType", ""):
+                req = service.files().export_media(fileId=f["id"], mimeType="text/csv")
+            else:
+                req = service.files().get_media(fileId=f["id"])
             dl = _DL(buf, req)
             while True:
                 _, done = dl.next_chunk()
