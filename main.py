@@ -1060,6 +1060,7 @@ async def drive_list_files(
     ALLOWED_EXTS = {".pdf", ".doc", ".docx", ".rtf", ".odt", ".txt"}
 
     service = get_drive_service()
+    print(f"[drive/files] folder_id={folder_id} from={from_ts} to={to_ts}")
     # No mimeType filter — sync.py may store files as application/octet-stream.
     # Filter by extension in Python instead.
     q = (
@@ -1080,17 +1081,21 @@ async def drive_list_files(
             pageSize=1000,
             supportsAllDrives=True,
             includeItemsFromAllDrives=True,
+            corpora="allDrives",
         )
         if page_token:
             kwargs["pageToken"] = page_token
         page = service.files().list(**kwargs).execute()
-        all_files.extend(page.get("files", []))
+        batch = page.get("files", [])
+        all_files.extend(batch)
+        print(f"[drive/files] page returned {len(batch)} files, total so far {len(all_files)}")
         page_token = page.get("nextPageToken")
         if not page_token:
             break
     # Filter to CV file extensions only
     files = [f for f in all_files
              if os.path.splitext(f.get("name", "").lower())[1] in ALLOWED_EXTS]
+    print(f"[drive/files] total_in_folder={len(all_files)} after_ext_filter={len(files)}")
     return {"files": files, "from_date": from_date, "to_date": to_date,
             "count": len(files), "total_in_folder": len(all_files)}
 
