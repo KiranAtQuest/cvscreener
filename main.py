@@ -894,31 +894,42 @@ def load_salary_from_manifest(service) -> dict:
             q=f"'{folder_id}' in parents and name contains 'CV_Download_Manifest' and trashed=false",
             fields="files(id,name,createdTime)",
             orderBy="createdTime desc",
-            pageSize=1,
+            pageSize=5,
             supportsAllDrives=True,
             includeItemsFromAllDrives=True,
         ).execute()
         files = results.get("files", [])
         if not files:
             return {}
-        fid = files[0]["id"]
-        buf = io.BytesIO()
-        req = service.files().get_media(fileId=fid)
-        dl = _DL(buf, req)
-        while True:
-            _, done = dl.next_chunk()
-            if done:
-                break
-        buf.seek(0)
-        reader = _csv.DictReader(io.TextIOWrapper(buf, encoding="utf-8-sig"))
-        mapping = {}
-        for row in reader:
-            cid = (row.get("Candidate_ID") or "").strip()
-            sal = (row.get("Current_Salary") or "").strip()
-            if cid and sal:
-                mapping[cid] = sal
-        return mapping
-    except Exception:
+        # Try manifests newest-first; use first one that has a Current_Salary column
+        for manifest_file in files:
+            fid = manifest_file["id"]
+            buf = io.BytesIO()
+            req = service.files().get_media(fileId=fid)
+            dl = _DL(buf, req)
+            while True:
+                _, done = dl.next_chunk()
+                if done:
+                    break
+            buf.seek(0)
+            reader = _csv.DictReader(io.TextIOWrapper(buf, encoding="utf-8-sig"))
+            rows = list(reader)
+            if not rows:
+                continue
+            if "Current_Salary" not in (rows[0].keys() if rows else []):
+                continue  # old manifest without salary column — try next
+            mapping = {}
+            for row in rows:
+                cid = (row.get("Candidate_ID") or "").strip()
+                sal = (row.get("Current_Salary") or "").strip()
+                if cid and sal:
+                    mapping[cid] = sal
+            if mapping:
+                return mapping
+        return {}
+    except Exception as exc:
+        import traceback
+        print(f"[load_salary_from_manifest] error: {exc}\n{traceback.format_exc()}")
         return {}
 
 
@@ -949,6 +960,51 @@ async def drive_salary_map(qs_token: Optional[str] = Cookie(default=None)):
     _auth.get_current_user(qs_token)
     service = get_drive_service()
     return load_salary_from_manifest(service)
+
+
+@app.get("/api/drive/salary-map/debug")
+async def drive_salary_map_debug(qs_token: Optional[str] = Cookie(default=None)):
+    """Admin debug: show manifest files found and their columns."""
+    _auth.require_admin(qs_token=qs_token)
+    import csv as _csv
+    from googleapiclient.http import MediaIoBaseDownload as _DL
+    folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
+    service = get_drive_service()
+    results = service.files().list(
+        q=f"'{folder_id}' in parents and name contains 'CV_Download_Manifest' and trashed=false",
+        fields="files(id,name,createdTime,mimeType)",
+        orderBy="createdTime desc",
+        pageSize=5,
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True,
+    ).execute()
+    files = results.get("files", [])
+    out = []
+    for f in files:
+        info = {"id": f["id"], "name": f["name"], "createdTime": f["createdTime"], "mimeType": f["mimeType"]}
+        try:
+            buf = io.BytesIO()
+            req = service.files().get_media(fileId=f["id"])
+            dl = _DL(buf, req)
+            while True:
+                _, done = dl.next_chunk()
+                if done:
+                    break
+            buf.seek(0)
+            reader = _csv.DictReader(io.TextIOWrapper(buf, encoding="utf-8-sig"))
+            rows = list(reader)
+            info["columns"] = list(rows[0].keys()) if rows else []
+            info["row_count"] = len(rows)
+            has_salary = "Current_Salary" in info["columns"]
+            info["has_salary_column"] = has_salary
+            if has_salary:
+                filled = sum(1 for r in rows if (r.get("Current_Salary") or "").strip())
+                info["rows_with_salary"] = filled
+                info["sample_salaries"] = [r.get("Current_Salary","") for r in rows[:5]]
+        except Exception as exc:
+            info["error"] = str(exc)
+        out.append(info)
+    return {"manifests": out, "salary_map_size": len(load_salary_from_manifest(service))}
 
 
 @app.get("/api/drive/files")
