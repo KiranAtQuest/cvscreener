@@ -891,9 +891,8 @@ def load_salary_from_manifest(service) -> dict:
         return {}
     try:
         from googleapiclient.http import MediaIoBaseDownload as _DL
-        # Query by ownership so we can find manifests regardless of which folder
         r = service.files().list(
-            q="'me' in owners and name contains 'Manifest' and mimeType = 'text/csv' and trashed=false",
+            q=f"'{folder_id}' in parents and name contains 'Manifest' and trashed=false",
             fields="files(id,name,createdTime,mimeType,parents)",
             orderBy="createdTime desc",
             pageSize=20,
@@ -1052,17 +1051,13 @@ async def drive_list_files(
 
     service = get_drive_service()
     print(f"[drive/files] folder_id={folder_id} from={from_ts} to={to_ts}")
-    # Query by ownership — service account owns all files it uploaded.
-    # Querying by 'in parents' fails for folders in a human user's My Drive.
     q = (
-        f"'me' in owners"
+        f"'{folder_id}' in parents"
         f" and createdTime >= '{from_ts}'"
         f" and createdTime <= '{to_ts}'"
         f" and trashed = false"
         f" and mimeType != 'application/vnd.google-apps.folder'"
-        f" and mimeType != 'text/csv'"  # exclude manifest CSVs
     )
-    # Paginate to get all files (Drive returns max 1000 per page)
     all_files = []
     page_token = None
     while True:
@@ -1081,11 +1076,9 @@ async def drive_list_files(
         page_token = page.get("nextPageToken")
         if not page_token:
             break
-    # Keep only files in the configured folder and with CV extensions
     files = [f for f in all_files
-             if folder_id in (f.get("parents") or [])
-             and os.path.splitext(f.get("name", "").lower())[1] in ALLOWED_EXTS]
-    print(f"[drive/files] owned_in_window={len(all_files)} in_folder+ext={len(files)}")
+             if os.path.splitext(f.get("name", "").lower())[1] in ALLOWED_EXTS]
+    print(f"[drive/files] total={len(all_files)} cv_files={len(files)}")
     return {"files": files, "from_date": from_date, "to_date": to_date,
             "count": len(files), "total_in_folder": len(all_files)}
 
