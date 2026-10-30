@@ -890,26 +890,16 @@ def load_salary_from_manifest(service) -> dict:
         return {}
     try:
         from googleapiclient.http import MediaIoBaseDownload as _DL
-        # Search with name filter first; also try without to catch differently-named files
-        found = []
-        for q in [
-            f"'{folder_id}' in parents and name contains 'CV_Download_Manifest' and trashed=false",
-            f"'{folder_id}' in parents and name contains 'Manifest' and trashed=false",
-        ]:
-            r = service.files().list(
-                q=q,
-                fields="files(id,name,createdTime,mimeType)",
-                orderBy="createdTime desc",
-                pageSize=20,
-                supportsAllDrives=True,
-                includeItemsFromAllDrives=True,
-            ).execute()
-            for f in r.get("files", []):
-                if not any(x["id"] == f["id"] for x in found):
-                    found.append(f)
+        # Query by ownership so we can find manifests regardless of which folder
+        r = service.files().list(
+            q="'me' in owners and name contains 'Manifest' and mimeType = 'text/csv' and trashed=false",
+            fields="files(id,name,createdTime,mimeType,parents)",
+            orderBy="createdTime desc",
+            pageSize=20,
+        ).execute()
+        files = r.get("files", [])
         # Sort newest first
-        found.sort(key=lambda f: f.get("createdTime", ""), reverse=True)
-        files = found
+        files.sort(key=lambda f: f.get("createdTime", ""), reverse=True)
         print(f"[salary-manifest] found {len(files)} manifest files: {[f['name'] for f in files]}")
         if not files:
             return {}
@@ -1061,14 +1051,15 @@ async def drive_list_files(
 
     service = get_drive_service()
     print(f"[drive/files] folder_id={folder_id} from={from_ts} to={to_ts}")
-    # No mimeType filter — sync.py may store files as application/octet-stream.
-    # Filter by extension in Python instead.
+    # Query by ownership — service account owns all files it uploaded.
+    # Querying by 'in parents' fails for folders in a human user's My Drive.
     q = (
-        f"'{folder_id}' in parents"
+        f"'me' in owners"
         f" and createdTime >= '{from_ts}'"
         f" and createdTime <= '{to_ts}'"
         f" and trashed = false"
         f" and mimeType != 'application/vnd.google-apps.folder'"
+        f" and mimeType != 'text/csv'"  # exclude manifest CSVs
     )
     # Paginate to get all files (Drive returns max 1000 per page)
     all_files = []
@@ -1076,7 +1067,7 @@ async def drive_list_files(
     while True:
         kwargs = dict(
             q=q,
-            fields="nextPageToken,files(id,name,createdTime,size,mimeType)",
+            fields="nextPageToken,files(id,name,createdTime,size,mimeType,parents)",
             orderBy="createdTime desc",
             pageSize=1000,
         )
@@ -1089,10 +1080,11 @@ async def drive_list_files(
         page_token = page.get("nextPageToken")
         if not page_token:
             break
-    # Filter to CV file extensions only
+    # Keep only files in the configured folder and with CV extensions
     files = [f for f in all_files
-             if os.path.splitext(f.get("name", "").lower())[1] in ALLOWED_EXTS]
-    print(f"[drive/files] total_in_folder={len(all_files)} after_ext_filter={len(files)}")
+             if folder_id in (f.get("parents") or [])
+             and os.path.splitext(f.get("name", "").lower())[1] in ALLOWED_EXTS]
+    print(f"[drive/files] owned_in_window={len(all_files)} in_folder+ext={len(files)}")
     return {"files": files, "from_date": from_date, "to_date": to_date,
             "count": len(files), "total_in_folder": len(all_files)}
 
