@@ -10,6 +10,8 @@ import csv, io, json, mimetypes, os, re, time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+_token_cache = {"token": None, "expires_at": 0}
+
 import requests
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -31,6 +33,9 @@ IST = ZoneInfo("Asia/Kolkata")
 # ── Auth ───────────────────────────────────────────────────────────────────────
 
 def get_zoho_token():
+    now = time.time()
+    if _token_cache["token"] and now < _token_cache["expires_at"] - 60:
+        return _token_cache["token"]
     resp = requests.post(f"{ZOHO_ACCOUNTS_URL}/oauth/v2/token", data={
         "grant_type":    "refresh_token",
         "client_id":     ZOHO_CLIENT_ID,
@@ -38,7 +43,10 @@ def get_zoho_token():
         "refresh_token": ZOHO_REFRESH_TOKEN,
     }, timeout=30)
     resp.raise_for_status()
-    return resp.json()["access_token"]
+    data = resp.json()
+    _token_cache["token"] = data["access_token"]
+    _token_cache["expires_at"] = now + data.get("expires_in", 3600)
+    return _token_cache["token"]
 
 def zoho_headers(token):
     return {"Authorization": f"Zoho-oauthtoken {token}", "Accept": "application/json"}
@@ -178,9 +186,6 @@ def main():
         # Current Salary from $formatted_currency
         fmt_currency = cand.get("$formatted_currency") or {}
         current_salary = str(fmt_currency.get("Current_Salary", "") if isinstance(fmt_currency, dict) else "").strip()
-
-        # Refresh token per candidate to avoid expiry on large runs
-        token = get_zoho_token()
 
         # Get position via /associate
         try:
