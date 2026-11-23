@@ -32,10 +32,14 @@ IST = ZoneInfo("Asia/Kolkata")
 
 # ── Auth ───────────────────────────────────────────────────────────────────────
 
-def get_zoho_token():
+def get_zoho_token(force=False):
     now = time.time()
-    if _token_cache["token"] and now < _token_cache["expires_at"] - 60:
+    if not force and _token_cache["token"] and now < _token_cache["expires_at"] - 60:
         return _token_cache["token"]
+    if force:
+        _token_cache["token"] = None
+        _token_cache["expires_at"] = 0
+        time.sleep(2)  # brief back-off before retry refresh
     resp = requests.post(f"{ZOHO_ACCOUNTS_URL}/oauth/v2/token", data={
         "grant_type":    "refresh_token",
         "client_id":     ZOHO_CLIENT_ID,
@@ -45,8 +49,18 @@ def get_zoho_token():
     resp.raise_for_status()
     data = resp.json()
     _token_cache["token"] = data["access_token"]
-    _token_cache["expires_at"] = now + data.get("expires_in", 3600)
+    _token_cache["expires_at"] = time.time() + data.get("expires_in", 3600)
     return _token_cache["token"]
+
+def zoho_get(url, params=None, timeout=TIMEOUT):
+    """GET with automatic 401 retry after force-refreshing the token."""
+    def _do(tok):
+        return requests.get(url, headers={"Authorization": f"Zoho-oauthtoken {tok}", "Accept": "application/json"}, params=params, timeout=timeout)
+    resp = _do(get_zoho_token())
+    if resp.status_code == 401:
+        print("  [auth] 401 — force-refreshing Zoho token and retrying…")
+        resp = _do(get_zoho_token(force=True))
+    return resp
 
 def zoho_headers(token):
     return {"Authorization": f"Zoho-oauthtoken {token}", "Accept": "application/json"}
@@ -70,10 +84,10 @@ def get_candidates_from_date(cutoff):
     page = 1
     while True:
         print(f"  Fetching candidate page {page} (Created_Time >= {cutoff_str})…")
-        resp = requests.get(url, headers=zoho_headers(get_zoho_token()), params={
+        resp = zoho_get(url, params={
             "criteria": criteria, "page": page, "per_page": 200,
             "converted": "both", "approved": "both",
-        }, timeout=TIMEOUT)
+        })
         if resp.status_code == 204:
             break
         resp.raise_for_status()
@@ -86,13 +100,11 @@ def get_candidates_from_date(cutoff):
             break
         page += 1
 
-def get_candidate_position(token, candidate_id):
+def get_candidate_position(_, candidate_id):
     """Return (position_title, position_id) via the /associate sub-resource."""
-    resp = requests.get(
+    resp = zoho_get(
         f"{ZOHO_RECRUIT_URL}/recruit/v2/Candidates/{candidate_id}/associate",
-        headers=zoho_headers(token),
         params={"page": 1, "per_page": 200},
-        timeout=TIMEOUT,
     )
     if resp.status_code == 204:
         return "Unassigned", ""
@@ -188,7 +200,7 @@ def main():
 
         # Get position via /associate
         try:
-            position_title, position_id = get_candidate_position(get_zoho_token(), cid)
+            position_title, position_id = get_candidate_position(None, cid)
         except Exception as e:
             print(f"  WARNING: could not get position for {name}: {e}")
             position_title, position_id = "Unassigned", ""
@@ -197,9 +209,8 @@ def main():
 
         # Fetch attachments
         try:
-            resp = requests.get(
+            resp = zoho_get(
                 f"{ZOHO_RECRUIT_URL}/recruit/v2/Candidates/{cid}/Attachments",
-                headers=zoho_headers(get_zoho_token()), timeout=TIMEOUT,
             )
             if resp.status_code == 204:
                 continue
@@ -230,9 +241,9 @@ def main():
                 continue
 
             try:
-                dl = requests.get(
+                dl = zoho_get(
                     f"{ZOHO_RECRUIT_URL}/recruit/v2/Candidates/{cid}/Attachments/{att['id']}",
-                    headers=zoho_headers(get_zoho_token()), timeout=120,
+                    timeout=120,
                 )
                 dl.raise_for_status()
                 f = upload_to_drive(drive, dl.content, drive_name)
