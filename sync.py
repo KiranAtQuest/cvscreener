@@ -145,7 +145,6 @@ def upload_to_drive(drive, content, name, mime=None):
         body={"name": name, "parents": [GOOGLE_DRIVE_FOLDER_ID]},
         media_body=media, fields="id,name,webViewLink",
         supportsAllDrives=True,
-        includeItemsFromAllDrives=True,
     ).execute()
 
 def upload_manifest(drive, records):
