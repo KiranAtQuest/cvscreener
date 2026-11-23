@@ -66,22 +66,67 @@ nav .nav-btn:disabled { opacity: .4; cursor: not-allowed; }
 
 /* ── Login screen ─────────────────────────────────────────────── */
 .login-wrap {
-  flex: 1; display: flex; align-items: center; justify-content: center;
-  padding: 32px 16px;
+  flex: 1; display: flex; align-items: stretch; justify-content: stretch;
+  min-height: calc(100vh - 56px);
 }
+/* Left photo panel */
+.login-photo {
+  flex: 1; position: relative; overflow: hidden;
+  background: linear-gradient(135deg, #1a4fa0 0%, #0d7a7a 100%);
+  display: flex; flex-direction: column; justify-content: flex-end; padding: 48px 40px;
+  min-width: 0;
+}
+.login-photo-slides {
+  position: absolute; inset: 0;
+}
+.login-photo-slide {
+  position: absolute; inset: 0; background-size: cover; background-position: center;
+  opacity: 0; transition: opacity 1s ease-in-out;
+}
+.login-photo-slide.active { opacity: 1; }
+.login-photo-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(10,30,70,.75) 0%, rgba(10,30,70,.2) 60%, transparent 100%);
+}
+.login-photo-content { position: relative; z-index: 1; color: #fff; }
+.login-photo-content .qa-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,.18); backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,.3); border-radius: 20px;
+  padding: 6px 14px; font-size: 12px; font-weight: 600; letter-spacing: .5px;
+  text-transform: uppercase; margin-bottom: 20px;
+}
+.login-photo-content blockquote {
+  font-size: clamp(18px, 2.2vw, 26px); font-weight: 700; line-height: 1.3;
+  margin: 0 0 14px; max-width: 400px;
+}
+.login-photo-content .photo-caption {
+  font-size: 13px; opacity: .75;
+}
+.login-photo-dots {
+  display: flex; gap: 6px; margin-top: 20px; position: relative; z-index: 1;
+}
+.login-photo-dots span {
+  width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.4);
+  cursor: pointer; transition: .2s;
+}
+.login-photo-dots span.active { background: #fff; width: 18px; border-radius: 3px; }
+
+/* Right form panel */
 .login-box {
-  background: #fff; border-radius: 16px; border: 1px solid var(--border);
-  box-shadow: 0 4px 24px rgba(0,0,0,.09); padding: 40px 36px; width: 100%; max-width: 380px;
+  display: flex; flex-direction: column; justify-content: center;
+  background: #fff; padding: 56px 48px; width: 420px; flex-shrink: 0;
+  box-shadow: -4px 0 32px rgba(0,0,0,.08);
 }
-.login-box .login-logo { text-align: center; margin-bottom: 28px; }
+.login-box .login-logo { text-align: left; margin-bottom: 32px; }
 .login-box .login-logo .lm {
-  width: 48px; height: 48px; border-radius: 12px; background: var(--blue);
+  width: 44px; height: 44px; border-radius: 10px; background: var(--blue);
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 10px;
+  font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 12px;
 }
-.login-box h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
-.login-box .login-sub { font-size: 13px; color: var(--grey); }
-.login-box .login-logo h2, .login-box .login-logo .login-sub { text-align: center; }
+.login-box h2 { font-size: 22px; font-weight: 700; margin-bottom: 4px; text-align: left; }
+.login-box .login-sub { font-size: 13px; color: var(--grey); text-align: left; }
+.login-box .login-logo h2, .login-box .login-logo .login-sub { text-align: left; }
 .login-field { margin-bottom: 16px; }
 .login-field label { margin-bottom: 6px; }
 .login-field input { padding: 11px 13px; }
@@ -94,6 +139,18 @@ nav .nav-btn:disabled { opacity: .4; cursor: not-allowed; }
 .login-btn:hover { background: var(--blue-dark); }
 .login-btn:disabled { opacity: .5; cursor: not-allowed; }
 .login-hint { font-size: 11px; color: var(--grey); text-align: center; margin-top: 14px; }
+
+/* Responsive: hide photo panel on small screens */
+@media (max-width: 768px) {
+  .login-wrap { flex-direction: column; min-height: auto; }
+  .login-photo { display: none; }
+  .login-box {
+    width: 100%; padding: 40px 24px;
+    box-shadow: none;
+  }
+  .login-box .login-logo { text-align: center; }
+  .login-box .login-logo h2, .login-box .login-logo .login-sub { text-align: center; }
+}
 
 /* ── Nav user chip ────────────────────────────────────────────── */
 .user-chip {
@@ -587,6 +644,28 @@ textarea { min-height: 140px; line-height: 1.5; }
 <!-- ── Login screen ────────────────────────────────────────────── -->
 <div class="screen active" id="screen-login">
   <div class="login-wrap">
+
+    <!-- Left: photo panel -->
+    <div class="login-photo">
+      <div class="login-photo-slides" id="login-slides">
+        <div class="login-photo-slide active" style="background-image:url('https://drive.google.com/uc?export=download&id=1ZPVV6E4u9pLlM3fpaWTIxlTwjWtDgrcg')"></div>
+        <div class="login-photo-slide" style="background-image:url('https://drive.google.com/uc?export=download&id=1ax4I7UHdsONyakQvEKqQn9iLnHjYOpZP')"></div>
+        <div class="login-photo-slide" style="background-image:url('https://drive.google.com/uc?export=download&id=14bkkfk6U6T-e7beWpcIJVLB-RdRLd44b')"></div>
+      </div>
+      <div class="login-photo-overlay"></div>
+      <div class="login-photo-content">
+        <div class="qa-badge">Quest Alliance</div>
+        <blockquote id="login-quote">Skilling India's youth for meaningful livelihoods</blockquote>
+        <div class="photo-caption">CV Screener · Talent Assessment Platform</div>
+        <div class="login-photo-dots" id="login-dots">
+          <span class="active" onclick="goSlide(0)"></span>
+          <span onclick="goSlide(1)"></span>
+          <span onclick="goSlide(2)"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: form panel -->
     <div class="login-box">
       <div class="login-logo">
         <div class="lm">QA</div>
@@ -1102,6 +1181,30 @@ function backToStep1(e) {
   document.getElementById("login-step-1").style.display = "";
   document.getElementById("login-err").textContent = "";
 }
+
+/* ── Login photo slideshow ─────────────────────────────────── */
+(function() {
+  const quotes = [
+    "Skilling India's youth for meaningful livelihoods",
+    "Empowering learners to thrive in the future of work",
+    "Building skills that open doors across India"
+  ];
+  let cur = 0;
+  function goSlide(n) {
+    const slides = document.querySelectorAll(".login-photo-slide");
+    const dots = document.querySelectorAll(".login-photo-dots span");
+    const quoteEl = document.getElementById("login-quote");
+    if (!slides.length) return;
+    slides[cur].classList.remove("active");
+    dots[cur] && dots[cur].classList.remove("active");
+    cur = (n + slides.length) % slides.length;
+    slides[cur].classList.add("active");
+    dots[cur] && dots[cur].classList.add("active");
+    if (quoteEl) quoteEl.textContent = quotes[cur] || quotes[0];
+  }
+  window.goSlide = goSlide;
+  setInterval(function() { goSlide(cur + 1); }, 5000);
+})();
 
 function toggleAdminPw(e) {
   e && e.preventDefault();
