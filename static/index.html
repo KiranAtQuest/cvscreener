@@ -826,7 +826,7 @@ textarea { min-height: 140px; line-height: 1.5; }
 
         <!-- Drive pane (default) -->
         <div id="pane-drive">
-          <div class="card-sub" style="margin-bottom:14px">Pull CVs from the linked Google Drive folder. Showing the last 90 days by default.</div>
+          <div class="card-sub" style="margin-bottom:14px">Pull CVs from the linked Google Drive folder. Showing the last 7 days by default.</div>
           <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap">
             <div style="flex:1;min-width:130px">
               <label style="font-size:12px;font-weight:600;color:var(--grey);display:block;margin-bottom:4px">From date</label>
@@ -1753,7 +1753,7 @@ function switchUploadTab(tab) {
 
 function driveDefaultDates() {
   const today = new Date();
-  const ninetyDaysAgo = new Date(today); ninetyDaysAgo.setDate(today.getDate() - 90);
+  const ninetyDaysAgo = new Date(today); ninetyDaysAgo.setDate(today.getDate() - 7);
   const fmt = d => d.toISOString().slice(0, 10);
   const fromEl = document.getElementById('drive-from');
   const toEl   = document.getElementById('drive-to');
