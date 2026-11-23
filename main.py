@@ -1225,6 +1225,13 @@ async def drive_screen(body: DriveScreenBody, qs_token: Optional[str] = Cookie(d
                 r["current_salary"] = salary_map[cid]
                 r["salary_source"] = "zoho"
 
+    # Auto-save screening results so stats are populated
+    if results and body.role_title:
+        try:
+            _auth.save_screening_examples(body.role_title, results, user["username"])
+        except Exception as _e:
+            print(f"[drive/screen] warning: could not auto-save examples: {_e}")
+
     return {"results": results, "truncated": truncated, "past_examples_used": len(past_examples)}
 
 
