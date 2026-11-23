@@ -180,11 +180,29 @@ nav .nav-btn:disabled { opacity: .4; cursor: not-allowed; }
 .wiz-step.done .wiz-step-name { color: rgba(255,255,255,.8); }
 .wiz-step.cur  .wiz-step-name { color: #fff; }
 
-.setup-wiz-wrap { max-width: 700px; margin: 0 auto; padding: 0 16px 40px; }
+.setup-wiz-wrap { max-width: 760px; margin: 0 auto; padding: 0 16px 40px; }
 
-.wiz-pane-header { padding: 28px 0 20px; border-bottom: 1.5px solid var(--border); margin-bottom: 24px; }
-.wiz-pane-header h2 { font-size: 19px; font-weight: 700; margin-bottom: 3px; }
-.wiz-pane-header p  { font-size: 13px; color: var(--grey); margin: 0; }
+.wiz-pane-hero {
+  background: linear-gradient(135deg, #f0f5ff 0%, #e8f0fe 100%);
+  border-radius: 14px; padding: 24px 28px; margin-bottom: 24px;
+  border: 1.5px solid #c7d9fd;
+}
+.wiz-pane-hero h2 { font-size: 20px; font-weight: 700; margin-bottom: 3px; color: #1e3a8a; }
+.wiz-pane-hero p  { font-size: 13px; color: #3b5bdb; margin: 0; }
+
+/* Source card selector */
+.wiz-source-cards { display: flex; gap: 12px; margin-bottom: 24px; }
+.wiz-source-card {
+  flex: 1; padding: 16px 18px; border-radius: 12px;
+  border: 2px solid var(--border); cursor: pointer;
+  display: flex; align-items: center; gap: 12px;
+  background: #fff; transition: .15s;
+}
+.wiz-source-card:hover { border-color: var(--blue); }
+.wiz-source-card.active { border-color: var(--blue); background: #eff4ff; }
+.wiz-source-card .sc-icon { font-size: 22px; flex-shrink: 0; }
+.wiz-source-card .sc-title { font-size: 14px; font-weight: 700; color: var(--text); display: block; }
+.wiz-source-card .sc-sub { font-size: 12px; color: var(--grey); }
 
 .wiz-pane-footer {
   display: flex; align-items: center; justify-content: space-between;
@@ -929,21 +947,27 @@ textarea { min-height: 140px; line-height: 1.5; }
 
       <!-- Step 1: CV Files -->
       <div class="wiz-step-pane active" id="wiz-pane-1">
-        <div class="wiz-pane-header">
-          <h2>CV Files</h2>
-          <p>Choose where to pull candidate CVs from, then set a date range.</p>
+        <div class="wiz-pane-hero">
+          <h2>1 · CV Files</h2>
+          <p>Choose where to pull candidate CVs from, then set a date range and role filter.</p>
         </div>
 
-        <!-- Source tabs -->
-        <div style="display:flex;gap:0;margin:0 0 20px;border:1.5px solid var(--border);border-radius:9px;overflow:hidden">
-          <button id="tab-drive" onclick="switchUploadTab('drive')"
-            style="flex:1;padding:10px 0;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--blue);color:#fff;font-family:inherit;transition:.15s">
-            ☁ From Google Drive
-          </button>
-          <button id="tab-upload" onclick="switchUploadTab('upload')"
-            style="flex:1;padding:10px 0;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--light);color:var(--grey);font-family:inherit;border-left:1.5px solid var(--border);transition:.15s">
-            📂 Upload Files
-          </button>
+        <!-- Source card selector -->
+        <div class="wiz-source-cards">
+          <div id="tab-drive" class="wiz-source-card active" onclick="switchUploadTab('drive')">
+            <span class="sc-icon">🗂️</span>
+            <div>
+              <span class="sc-title">Google Drive</span>
+              <span class="sc-sub">Auto-synced from Zoho ATS</span>
+            </div>
+          </div>
+          <div id="tab-upload" class="wiz-source-card" onclick="switchUploadTab('upload')">
+            <span class="sc-icon">📂</span>
+            <div>
+              <span class="sc-title">Upload Files</span>
+              <span class="sc-sub">PDF, DOCX, DOC · up to 500 files</span>
+            </div>
+          </div>
         </div>
 
         <!-- Drive pane (default) -->
@@ -997,8 +1021,8 @@ textarea { min-height: 140px; line-height: 1.5; }
 
       <!-- Step 2: Job Description -->
       <div class="wiz-step-pane" id="wiz-pane-2">
-        <div class="wiz-pane-header">
-          <h2>Job Description</h2>
+        <div class="wiz-pane-hero">
+          <h2>2 · Job Description</h2>
           <p>Paste, upload, or pick a previously saved JD to screen against.</p>
         </div>
 
@@ -1043,8 +1067,8 @@ textarea { min-height: 140px; line-height: 1.5; }
 
       <!-- Step 3: Competencies -->
       <div class="wiz-step-pane" id="wiz-pane-3">
-        <div class="wiz-pane-header">
-          <h2>Skill Competencies</h2>
+        <div class="wiz-pane-hero">
+          <h2>3 · Skill Competencies</h2>
           <p>Auto-detect from the JD, or add your own. Up to 8 competencies.</p>
         </div>
 
@@ -1068,8 +1092,8 @@ textarea { min-height: 140px; line-height: 1.5; }
 
       <!-- Step 4: Calibration -->
       <div class="wiz-step-pane" id="wiz-pane-4">
-        <div class="wiz-pane-header">
-          <h2>Reviewer Calibration <span style="font-size:14px;font-weight:400;color:var(--grey)">(optional)</span></h2>
+        <div class="wiz-pane-hero">
+          <h2>4 · Reviewer Calibration <span style="font-size:14px;font-weight:400;color:#3b5bdb">(optional)</span></h2>
           <p>Add notes to calibrate Claude's scoring to your team's standards.</p>
         </div>
 
@@ -1087,8 +1111,8 @@ textarea { min-height: 140px; line-height: 1.5; }
 
       <!-- Step 5: Screen -->
       <div class="wiz-step-pane" id="wiz-pane-5">
-        <div class="wiz-pane-header">
-          <h2>Ready to Screen</h2>
+        <div class="wiz-pane-hero">
+          <h2>5 · Ready to Screen</h2>
           <p>Everything looks good — click below to start the AI screening.</p>
         </div>
 
@@ -2080,10 +2104,8 @@ function switchUploadTab(tab) {
   document.getElementById('pane-drive').style.display  = driveMode ? '' : 'none';
   const tabDrive  = document.getElementById('tab-drive');
   const tabUpload = document.getElementById('tab-upload');
-  tabDrive.style.background  = driveMode ? 'var(--blue)' : 'var(--light)';
-  tabDrive.style.color       = driveMode ? '#fff' : 'var(--grey)';
-  tabUpload.style.background = driveMode ? 'var(--light)' : 'var(--blue)';
-  tabUpload.style.color      = driveMode ? 'var(--grey)' : '#fff';
+  tabDrive.classList.toggle('active', driveMode);
+  tabUpload.classList.toggle('active', !driveMode);
   const driveNote = document.getElementById('jd-drive-note');
   if (driveNote) driveNote.style.display = driveMode ? '' : 'none';
   updateTimeEst();
