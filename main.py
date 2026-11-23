@@ -1137,8 +1137,9 @@ async def drive_list_files(
     cv_files = [f for f in all_files
                 if os.path.splitext(f.get("name", "").lower())[1] in ALLOWED_EXTS]
 
-    # Apply date filter using manifest date, falling back to Drive createdTime
-    def file_date(f) -> date:
+    # Apply date filter using manifest date only; files not in manifest are excluded
+    # (Drive createdTime = upload time for backfilled files, not the real application date)
+    def file_date(f):
         name = f.get("name", "")
         manifest_ts = date_map.get(name, "")
         if manifest_ts:
@@ -1146,16 +1147,9 @@ async def drive_list_files(
                 return datetime.fromisoformat(manifest_ts.replace("Z", "+00:00")).date()
             except Exception:
                 pass
-        # Fallback: Drive createdTime
-        ct = f.get("createdTime", "")
-        if ct:
-            try:
-                return datetime.fromisoformat(ct.replace("Z", "+00:00")).date()
-            except Exception:
-                pass
-        return date.today()
+        return None  # No manifest entry → exclude from date-filtered results
 
-    files = [f for f in cv_files if from_dt.date() <= file_date(f) <= to_dt.date()]
+    files = [f for f in cv_files if file_date(f) is not None and from_dt.date() <= file_date(f) <= to_dt.date()]
     print(f"[drive/files] total={len(all_files)} cv_files={len(cv_files)} in_range={len(files)}")
     return {"files": files, "from_date": from_date, "to_date": to_date,
             "count": len(files), "total_in_folder": len(all_files)}
