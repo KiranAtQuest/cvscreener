@@ -62,7 +62,7 @@ def get_drive_service():
 
 # ── Zoho helpers ───────────────────────────────────────────────────────────────
 
-def get_candidates_from_date(token, cutoff):
+def get_candidates_from_date(cutoff):
     """Fetch only candidates created on/after cutoff using the search endpoint."""
     url = f"{ZOHO_RECRUIT_URL}/recruit/v2/Candidates/search"
     cutoff_str = cutoff.isoformat(timespec="seconds")
@@ -70,7 +70,7 @@ def get_candidates_from_date(token, cutoff):
     page = 1
     while True:
         print(f"  Fetching candidate page {page} (Created_Time >= {cutoff_str})…")
-        resp = requests.get(url, headers=zoho_headers(token), params={
+        resp = requests.get(url, headers=zoho_headers(get_zoho_token()), params={
             "criteria": criteria, "page": page, "per_page": 200,
             "converted": "both", "approved": "both",
         }, timeout=TIMEOUT)
@@ -174,12 +174,11 @@ def main():
     cutoff = datetime.now(IST) - timedelta(days=SYNC_DAYS)
     print(f"Processing candidates created on/after: {cutoff.date()}\n")
 
-    token = get_zoho_token()
     drive = get_drive_service()
     manifest = []
     uploaded = skipped_old = skipped_dup = errors = 0
 
-    for cand in get_candidates_from_date(token, cutoff):
+    for cand in get_candidates_from_date(cutoff):
         cid  = str(cand["id"])
         name = str(cand.get("Full_Name") or cand.get("Last_Name") or "Candidate").strip()
 
@@ -189,7 +188,7 @@ def main():
 
         # Get position via /associate
         try:
-            position_title, position_id = get_candidate_position(token, cid)
+            position_title, position_id = get_candidate_position(get_zoho_token(), cid)
         except Exception as e:
             print(f"  WARNING: could not get position for {name}: {e}")
             position_title, position_id = "Unassigned", ""
@@ -200,7 +199,7 @@ def main():
         try:
             resp = requests.get(
                 f"{ZOHO_RECRUIT_URL}/recruit/v2/Candidates/{cid}/Attachments",
-                headers=zoho_headers(token), timeout=TIMEOUT,
+                headers=zoho_headers(get_zoho_token()), timeout=TIMEOUT,
             )
             if resp.status_code == 204:
                 continue
@@ -233,7 +232,7 @@ def main():
             try:
                 dl = requests.get(
                     f"{ZOHO_RECRUIT_URL}/recruit/v2/Candidates/{cid}/Attachments/{att['id']}",
-                    headers=zoho_headers(token), timeout=120,
+                    headers=zoho_headers(get_zoho_token()), timeout=120,
                 )
                 dl.raise_for_status()
                 f = upload_to_drive(drive, dl.content, drive_name)
