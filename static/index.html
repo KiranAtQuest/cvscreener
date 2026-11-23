@@ -1787,7 +1787,7 @@ function filterDriveByRole() {
 // ── Screen CVs ─────────────────────────────────────────────────────────────────
 const BATCH_SIZE = 25;
 
-function updateProgress(title, msg, batchDone, batchTotal) {
+function updateProgress(title, msg, batchDone, batchTotal, cvsDone) {
   document.getElementById("pb-title").textContent = title;
   document.getElementById("pb-msg").textContent = msg;
   const barWrap = document.getElementById("pb-bar-wrap");
@@ -1796,10 +1796,9 @@ function updateProgress(title, msg, batchDone, batchTotal) {
   if (batchTotal > 1) {
     barWrap.style.display = "";
     bar.style.width = `${Math.round((batchDone / batchTotal) * 100)}%`;
-    const remaining = batchTotal - batchDone;
-    const secLeft = remaining * 28;
-    const timeStr = secLeft < 60 ? `~${secLeft}s` : `~${Math.round(secLeft/60)} min`;
-    detail.textContent = `Batch ${batchDone} of ${batchTotal} complete · ${timeStr} remaining`;
+    detail.textContent = cvsDone != null
+      ? `${cvsDone} CVs screened · batch ${batchDone} of ${batchTotal} complete`
+      : `Batch ${batchDone} of ${batchTotal} complete`;
     detail.style.display = "";
   } else {
     barWrap.style.display = "none";
@@ -1867,8 +1866,8 @@ async function runDriveScreen(jd) {
       if (b === 0) pastExamplesUsed = data.past_examples_used || 0;
       if (numBatches > 1) updateProgress(
         `Screening from Drive… (batch ${b+1} of ${numBatches})`,
-        `${allResults.length} CVs screened so far…`,
-        b + 1, numBatches
+        `Processing files ${Math.min((b+1)*25+1, totalFiles)}–${Math.min((b+2)*25, totalFiles)} of ${totalFiles}`,
+        b + 1, numBatches, allResults.length
       );
     }
 
@@ -1962,8 +1961,8 @@ async function runScreen() {
 
       if (numBatches > 1) updateProgress(
         `Screening CVs… (batch ${b+1} of ${numBatches})`,
-        `${allResults.length} CVs screened so far…`,
-        b + 1, numBatches
+        `Processing CVs ${Math.min((b+1)*BATCH_SIZE+1, totalFiles)}–${Math.min((b+2)*BATCH_SIZE, totalFiles)} of ${totalFiles}`,
+        b + 1, numBatches, allResults.length
       );
     }
 
