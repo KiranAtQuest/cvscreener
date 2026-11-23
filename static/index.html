@@ -23,7 +23,7 @@ body { display: flex; flex-direction: column; }
 /* ── Nav ──────────────────────────────────────────────────────── */
 nav {
   position: sticky; top: 0; z-index: 100;
-  background: var(--navy); height: 58px; display: flex; align-items: center;
+  background: linear-gradient(135deg, #1A1A2E 0%, #0A3060 60%, #0075BC 100%); height: 58px; display: flex; align-items: center;
   padding: 0 28px; gap: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.18);
 }
 nav .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
@@ -363,6 +363,9 @@ textarea { min-height: 140px; line-height: 1.5; }
   animation: spin .8s linear infinite; margin: 0 auto 20px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeSlideIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+@keyframes confettiBurst { 0% { transform: translate(0,0) scale(1); opacity:1; } 100% { transform: translate(var(--tx),var(--ty)) scale(0); opacity:0; } }
+.confetti-dot { position:fixed; width:8px; height:8px; border-radius:50%; pointer-events:none; z-index:9999; animation: confettiBurst .6s ease-out forwards; }
 
 /* ── Results screen ───────────────────────────────────────────── */
 .results-header {
@@ -401,6 +404,9 @@ textarea { min-height: 140px; line-height: 1.5; }
 .cand-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.1); border-color: #B8DCF0; }
 .cand-card.shortlisted { border-color: #A5D6A7; }
 .cand-card.rejected { border-color: #FFCDD2; }
+.cand-card.verdict-strong { border-left: 4px solid var(--green-light); }
+.cand-card.verdict-possible { border-left: 4px solid var(--orange); }
+.cand-card.verdict-weak { border-left: 4px solid var(--red); }
 .cc-top { padding: 16px; display: flex; gap: 14px; align-items: flex-start; }
 .cc-ring { position: relative; flex-shrink: 0; }
 .cc-ring svg { display: block; }
@@ -903,6 +909,7 @@ textarea { min-height: 140px; line-height: 1.5; }
         <button class="filter-btn" onclick="setFilter('shortlisted', this)">Shortlisted</button>
         <button class="filter-btn" onclick="setFilter('pending', this)">Pending</button>
         <button class="filter-btn" onclick="setFilter('rejected', this)">Rejected</button>
+        <span id="results-showing" style="font-size:12px;color:var(--grey);margin-left:4px"></span>
         <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
           <label style="font-size:12px;font-weight:600;color:var(--grey);white-space:nowrap">Sort by</label>
           <select id="sort-select" onchange="renderResults()" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:12px;background:#fff">
@@ -913,8 +920,10 @@ textarea { min-height: 140px; line-height: 1.5; }
         </div>
       </div>
       <div class="candidate-grid" id="candidate-grid"></div>
-      <div id="no-eligible" style="display:none;padding:32px;text-align:center;color:var(--grey);background:#fff;border-radius:var(--radius);border:1px solid var(--border)">
-        No candidates met the minimum 30% match threshold for this role.
+      <div id="no-eligible" style="display:none;padding:48px 32px;text-align:center;background:#fff;border-radius:var(--radius);border:1px solid var(--border)">
+        <div style="font-size:56px;margin-bottom:12px">🔍</div>
+        <strong style="font-size:16px;color:var(--navy)">No candidates found</strong>
+        <p style="margin-top:8px;font-size:13px;color:var(--grey)">No candidates met the minimum 30% match threshold.<br>Try adjusting your filters or screening more CVs.</p>
       </div>
     </div>
 
@@ -2086,26 +2095,46 @@ function renderResults() {
 
   document.getElementById("no-eligible").style.display = eligible.length === 0 ? "" : "none";
   const grid = document.getElementById("candidate-grid");
-  grid.innerHTML = visible.map(r => candidateCardHTML(r, false)).join("");
+  grid.innerHTML = visible.map((r, i) => candidateCardHTML(r, false, i)).join("");
+
+  // "Showing X of Y" count
+  const showingEl = document.getElementById("results-showing");
+  if (showingEl) {
+    if (state.currentFilter !== "all") {
+      showingEl.textContent = `· ${visible.length} of ${eligible.length}`;
+    } else {
+      showingEl.textContent = "";
+    }
+  }
 
   // Level 2 section visibility
   document.getElementById("level2-section").style.display = "";
   // Level 1: filtered candidates (collapsed by default)
   document.getElementById("level1-section").style.display = filtered.length ? "" : "none";
   const fgrid = document.getElementById("filtered-candidate-grid");
-  fgrid.innerHTML = filtered.map(r => candidateCardHTML(r, true)).join("");
+  fgrid.innerHTML = filtered.map((r, i) => candidateCardHTML(r, true, i)).join("");
 }
 
-function candidateCardHTML(r, isFiltered) {
+function candidateCardHTML(r, isFiltered, cardIdx) {
   const realIdx = state.results.indexOf(r);
   const sc = r.overall || 0;
   const b = band(sc);
   const dec = getDecision(r);
-  const cardClass = isFiltered ? "filtered-card" : (dec === true ? "shortlisted" : dec === false ? "rejected" : "");
+  const verdictClass = sc >= 85 ? "verdict-strong" : sc >= 65 ? "verdict-possible" : "verdict-weak";
+  const cardClass = [
+    isFiltered ? "filtered-card" : (dec === true ? "shortlisted" : dec === false ? "rejected" : ""),
+    isFiltered ? "" : verdictClass,
+  ].filter(Boolean).join(" ");
   const slClass = dec === true ? "sl-active" : "";
   const rjClass = dec === false ? "rj-active" : "";
+  const delay = (cardIdx || 0) * 40;
 
-  return `<div class="cand-card ${cardClass}" onclick="openDetail(${realIdx})" style="${isFiltered ? 'opacity:.7' : ''}">
+  // Salary from driveSalaryMap by candidate ID (first segment of filename)
+  const cid = (r.filename || '').split('_')[0];
+  const mapSalary = /^\d+$/.test(cid) ? (driveSalaryMap[cid] || '') : '';
+  const displaySalary = r.current_salary || mapSalary;
+
+  return `<div class="cand-card ${cardClass}" onclick="openDetail(${realIdx})" style="${isFiltered ? 'opacity:.7;' : ''}animation-delay:${delay}ms">
     <div class="cc-top">
       <div class="cc-ring" style="width:58px;height:58px;position:relative">
         ${scoreRingSVG(sc, 58, b, "")}
@@ -2116,17 +2145,17 @@ function candidateCardHTML(r, isFiltered) {
         <div class="cc-meta">
           ${r.years != null ? `<span>⏱ ${r.years} yrs</span>` : ""}
           ${r.location ? `<span>📍 ${r.location}</span>` : ""}
-          ${r.current_salary ? `<span title="${r.salary_source === 'zoho' ? 'From Zoho (as entered — monthly or annual)' : 'Extracted from CV — may be monthly or annual'}">💰 ${r.current_salary}</span>` : ""}
+          ${displaySalary ? `<span style="background:#E8F5EC;color:#1B6E2E;padding:2px 8px;border-radius:10px;font-weight:600;font-size:11px;border:1px solid #A5D6A7" title="${r.salary_source === 'zoho' ? 'From Zoho — as entered' : 'From CV or Zoho'}">💰 ${displaySalary}</span>` : ""}
           ${isFiltered ? `<span style="color:var(--grey)">⛔ Below threshold</span>` : ""}
         </div>
       </div>
     </div>
     <div class="cc-summary">${(r.summary||"").slice(0,120)}${(r.summary||"").length>120?"…":""}</div>
     ${!isFiltered ? `<div class="cc-footer" onclick="event.stopPropagation()">
-      <button class="cc-action ${slClass}" onclick="toggleDecision(${realIdx},'shortlist')">
+      <button class="cc-action ${slClass}" onclick="toggleDecision(${realIdx},'shortlist',event)">
         ${dec === true ? "✓ Shortlisted" : "Shortlist"}
       </button>
-      <button class="cc-action ${rjClass}" onclick="toggleDecision(${realIdx},'reject')">
+      <button class="cc-action ${rjClass}" onclick="toggleDecision(${realIdx},'reject',event)">
         ${dec === false ? "✗ Rejected" : "Reject"}
       </button>
     </div>` : ""}
@@ -2142,13 +2171,14 @@ function toggleFiltered() {
   toggle.textContent = isHidden ? "▾ Hide filtered" : "▸ Show filtered";
 }
 
-function toggleDecision(idx, action) {
+function toggleDecision(idx, action, evt) {
   const r = state.results[idx];
   const k = candKey(r);
   if (!state.decisions[k]) state.decisions[k] = {};
   const cur = state.decisions[k].shortlisted;
   if (action === "shortlist") {
     state.decisions[k].shortlisted = cur === true ? null : true;
+    if (state.decisions[k].shortlisted === true && evt) spawnConfetti(evt);
   } else {
     state.decisions[k].shortlisted = cur === false ? null : false;
   }
@@ -2158,6 +2188,21 @@ function toggleDecision(idx, action) {
 
   renderResults();
   if (state.detailIdx === idx) renderDetail(idx);
+}
+
+function spawnConfetti(evt) {
+  const colors = ["#0075BC","#F7941D","#1B6E2E","#F15A29","#9B59B6","#E91E63","#00BCD4","#FFD700"];
+  const x = evt.clientX || window.innerWidth / 2;
+  const y = evt.clientY || window.innerHeight / 2;
+  for (let i = 0; i < 12; i++) {
+    const dot = document.createElement("div");
+    dot.className = "confetti-dot";
+    const angle = (i / 12) * 2 * Math.PI;
+    const dist = 40 + Math.random() * 60;
+    dot.style.cssText = `left:${x}px;top:${y}px;background:${colors[i % colors.length]};--tx:${Math.cos(angle)*dist}px;--ty:${Math.sin(angle)*dist}px;animation-duration:${0.4+Math.random()*0.3}s`;
+    document.body.appendChild(dot);
+    setTimeout(() => dot.remove(), 800);
+  }
 }
 
 // ── Detail ─────────────────────────────────────────────────────────────────────
@@ -2275,6 +2320,14 @@ function renderDetail(idx) {
       <div class="section-title" style="margin-bottom:8px">Contact</div>
       ${r.email ? `<div class="contact-row"><span class="cr-label">Email</span><span class="cr-val">${r.email}</span></div>` : ""}
       ${r.phone ? `<div class="contact-row"><span class="cr-label">Phone</span><span class="cr-val">${r.phone}</span></div>` : ""}
+    </div>` : ""}
+
+    ${r.drive_url ? `<div class="contact-box">
+      <div class="section-title" style="margin-bottom:8px">CV File</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <a href="${r.drive_url}" target="_blank" rel="noopener" style="font-size:12px;color:var(--blue);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Open in Drive">📄 Open in Drive</a>
+        <button class="btn-sm outline" style="font-size:11px;padding:4px 10px;flex-shrink:0" onclick="navigator.clipboard.writeText('${r.drive_url}').then(()=>showToast('Link copied!'))">Copy</button>
+      </div>
     </div>` : ""}
 
     <div class="calib-feedback">
@@ -2498,6 +2551,45 @@ document.addEventListener("input", e => {
   if (e.target.id === "jd-input") {
     const btn = document.getElementById("save-jd-btn");
     if (btn) btn.style.display = e.target.value.trim() ? "" : "none";
+  }
+});
+
+// ── Keyboard shortcuts ──────────────────────────────────────────────────────────
+document.addEventListener("keydown", e => {
+  // Ignore when typing in an input/textarea
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) return;
+
+  const activeScreen = [...document.querySelectorAll(".screen.active")][0]?.id;
+
+  if (activeScreen === "screen-results") {
+    if (e.key === "f" || e.key === "F") {
+      e.preventDefault();
+      const isAll = state.currentFilter === "all";
+      const targetFilter = isAll ? "shortlisted" : "all";
+      const btn = [...document.querySelectorAll(".filter-btn")].find(b => b.textContent.toLowerCase().includes(isAll ? "shortlisted" : "all eligible"));
+      if (btn) setFilter(targetFilter, btn);
+    }
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      e.preventDefault();
+      const cards = [...document.querySelectorAll("#candidate-grid .cand-card")];
+      const focused = document.activeElement;
+      const idx = cards.indexOf(focused);
+      const next = cards[idx + 1] || cards[0];
+      if (next) next.focus();
+    }
+    if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const cards = [...document.querySelectorAll("#candidate-grid .cand-card")];
+      const focused = document.activeElement;
+      const idx = cards.indexOf(focused);
+      const prev = cards[idx - 1] || cards[cards.length - 1];
+      if (prev) prev.focus();
+    }
+  }
+
+  if (activeScreen === "screen-detail" && e.key === "Escape") {
+    e.preventDefault();
+    goResults();
   }
 });
 
