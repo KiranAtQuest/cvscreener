@@ -1,6 +1,6 @@
 import os, io, re, json, asyncio
 import psycopg2
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
 from typing import List, Optional
 
 import anthropic
@@ -950,6 +950,53 @@ def load_salary_from_manifest(service) -> dict:
         return {}
 
 
+def load_manifest_date_map(service) -> dict:
+    """Return {cv_file_name: attachment_created_time_iso} from all manifest CSVs in Drive."""
+    import csv as _csv
+    folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
+    if not folder_id:
+        return {}
+    try:
+        from googleapiclient.http import MediaIoBaseDownload as _DL
+        r = service.files().list(
+            q=f"'{folder_id}' in parents and name contains 'Manifest' and trashed=false",
+            fields="files(id,name,createdTime,mimeType)",
+            orderBy="createdTime desc",
+            pageSize=50,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+        ).execute()
+        files = r.get("files", [])
+        files.sort(key=lambda f: f.get("createdTime", ""), reverse=True)
+        date_map: dict = {}
+        for manifest_file in files:
+            fid = manifest_file["id"]
+            mime = manifest_file.get("mimeType", "")
+            buf = io.BytesIO()
+            if "vnd.google-apps" in mime:
+                req = service.files().export_media(fileId=fid, mimeType="text/csv")
+            else:
+                req = service.files().get_media(fileId=fid, supportsAllDrives=True)
+            dl = _DL(buf, req)
+            while True:
+                _, done = dl.next_chunk()
+                if done:
+                    break
+            buf.seek(0)
+            reader = _csv.DictReader(io.TextIOWrapper(buf, encoding="utf-8-sig"))
+            for row in reader:
+                fname = (row.get("CV_File_Name") or "").strip()
+                atime = (row.get("Attachment_Created_Time") or "").strip()
+                if fname and atime and fname not in date_map:
+                    date_map[fname] = atime
+        print(f"[manifest-date-map] built map with {len(date_map)} entries from {len(files)} manifests")
+        return date_map
+    except Exception as exc:
+        import traceback
+        print(f"[load_manifest_date_map] error: {exc}\n{traceback.format_exc()}")
+        return {}
+
+
 @app.get("/api/drive/debug")
 async def drive_debug(qs_token: Optional[str] = Cookie(default=None)):
     """Return raw file count and mimeType breakdown for the Drive folder — admin only."""
@@ -1045,18 +1092,23 @@ async def drive_list_files(
     if not to_date:
         to_date = today.isoformat()
 
-    # Drive RFC 3339 timestamps — use start of from_date and end of to_date in UTC
-    from_ts = f"{from_date}T00:00:00Z"
-    to_ts   = f"{to_date}T23:59:59Z"
+    from_dt = datetime.fromisoformat(from_date)
+    to_dt   = datetime.fromisoformat(to_date)
 
     ALLOWED_EXTS = {".pdf", ".doc", ".docx", ".rtf", ".odt", ".txt"}
 
     service = get_drive_service()
-    print(f"[drive/files] folder_id={folder_id} from={from_ts} to={to_ts}")
+    print(f"[drive/files] folder_id={folder_id} from={from_date} to={to_date}")
+
+    # Load manifest date map — Attachment_Created_Time is the real Zoho application date.
+    # Drive createdTime = upload time (batch backfill made all files appear on the same day),
+    # so we filter by manifest date instead and fall back to Drive createdTime only when missing.
+    date_map = load_manifest_date_map(service)
+    print(f"[drive/files] manifest date_map has {len(date_map)} entries")
+
+    # Fetch ALL non-trashed CV files in the folder (no createdTime filter in the query)
     q = (
         f"'{folder_id}' in parents"
-        f" and createdTime >= '{from_ts}'"
-        f" and createdTime <= '{to_ts}'"
         f" and trashed = false"
         f" and mimeType != 'application/vnd.google-apps.folder'"
     )
@@ -1080,9 +1132,31 @@ async def drive_list_files(
         page_token = page.get("nextPageToken")
         if not page_token:
             break
-    files = [f for f in all_files
-             if os.path.splitext(f.get("name", "").lower())[1] in ALLOWED_EXTS]
-    print(f"[drive/files] total={len(all_files)} cv_files={len(files)}")
+
+    # Filter to CV file extensions
+    cv_files = [f for f in all_files
+                if os.path.splitext(f.get("name", "").lower())[1] in ALLOWED_EXTS]
+
+    # Apply date filter using manifest date, falling back to Drive createdTime
+    def file_date(f) -> date:
+        name = f.get("name", "")
+        manifest_ts = date_map.get(name, "")
+        if manifest_ts:
+            try:
+                return datetime.fromisoformat(manifest_ts.replace("Z", "+00:00")).date()
+            except Exception:
+                pass
+        # Fallback: Drive createdTime
+        ct = f.get("createdTime", "")
+        if ct:
+            try:
+                return datetime.fromisoformat(ct.replace("Z", "+00:00")).date()
+            except Exception:
+                pass
+        return date.today()
+
+    files = [f for f in cv_files if from_dt.date() <= file_date(f) <= to_dt.date()]
+    print(f"[drive/files] total={len(all_files)} cv_files={len(cv_files)} in_range={len(files)}")
     return {"files": files, "from_date": from_date, "to_date": to_date,
             "count": len(files), "total_in_folder": len(all_files)}
 
