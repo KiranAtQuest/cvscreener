@@ -919,6 +919,18 @@ textarea { min-height: 140px; line-height: 1.5; }
           </select>
         </div>
       </div>
+      <!-- Salary range filter (shown only when salary data exists) -->
+<div id="salary-filter-wrap" style="display:none;align-items:center;gap:12px;margin-bottom:16px;background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:12px 16px;flex-wrap:wrap">
+  <span style="font-size:12px;font-weight:600;color:var(--grey);white-space:nowrap">💰 Salary</span>
+  <input type="range" id="salary-min-range" min="0" max="100" value="0" step="1"
+    style="flex:1;min-width:80px;accent-color:var(--blue)" oninput="onSalaryFilter()">
+  <span style="font-size:12px;font-weight:600;color:var(--navy);min-width:60px;text-align:right" id="salary-min-label">Any</span>
+  <span style="font-size:11px;color:var(--grey)">–</span>
+  <input type="range" id="salary-max-range" min="0" max="100" value="100" step="1"
+    style="flex:1;min-width:80px;accent-color:var(--blue)" oninput="onSalaryFilter()">
+  <span style="font-size:12px;font-weight:600;color:var(--navy);min-width:60px" id="salary-max-label">Any</span>
+  <button onclick="resetSalaryFilter()" style="font-size:11px;color:var(--grey);background:none;border:none;cursor:pointer;text-decoration:underline;white-space:nowrap">Reset</button>
+</div>
       <div class="candidate-grid" id="candidate-grid"></div>
       <div id="no-eligible" style="display:none;padding:48px 32px;text-align:center;background:#fff;border-radius:var(--radius);border:1px solid var(--border)">
         <div style="font-size:56px;margin-bottom:12px">🔍</div>
@@ -2013,6 +2025,80 @@ function rcToggle() {
   if (btn) btn.textContent = open ? "Show less" : "Show more";
 }
 
+// ── Salary range filter ────────────────────────────────────────────────────────
+let _salaryValues = []; // sorted numeric salary values extracted from candidates
+
+function _parseSalaryNum(r) {
+  const raw = r.current_salary || (driveSalaryMap[(r.filename||'').split('_')[0]] || '');
+  const n = parseFloat(raw.replace(/[^\d.]/g, ''));
+  return isNaN(n) ? null : n;
+}
+
+function _fmtSalaryLabel(val) {
+  if (val >= 100000) return '₹' + (val/100000).toFixed(1) + 'L';
+  if (val >= 1000)   return '₹' + Math.round(val/1000) + 'K';
+  return '₹' + val;
+}
+
+function initSalaryFilter(eligible) {
+  const wrap = document.getElementById('salary-filter-wrap');
+  const vals = eligible.map(_parseSalaryNum).filter(v => v !== null);
+  if (vals.length < 2) { wrap.style.display = 'none'; return; }
+  _salaryValues = [...new Set(vals)].sort((a,b) => a - b);
+  const mn = document.getElementById('salary-min-range');
+  const mx = document.getElementById('salary-max-range');
+  // Only reset sliders on first load (when min===0 and max===100 at defaults)
+  if (mn.dataset.initialised !== '1') {
+    mn.min = 0; mn.max = _salaryValues.length - 1; mn.value = 0;
+    mx.min = 0; mx.max = _salaryValues.length - 1; mx.value = _salaryValues.length - 1;
+    mn.dataset.initialised = '1';
+    updateSalaryLabels();
+  }
+  wrap.style.display = 'flex';
+}
+
+function updateSalaryLabels() {
+  const mn = document.getElementById('salary-min-range');
+  const mx = document.getElementById('salary-max-range');
+  const minVal = _salaryValues[+mn.value];
+  const maxVal = _salaryValues[+mx.value];
+  document.getElementById('salary-min-label').textContent = minVal != null ? _fmtSalaryLabel(minVal) : 'Any';
+  document.getElementById('salary-max-label').textContent = maxVal != null ? _fmtSalaryLabel(maxVal) : 'Any';
+}
+
+function onSalaryFilter() {
+  const mn = document.getElementById('salary-min-range');
+  const mx = document.getElementById('salary-max-range');
+  // Prevent min > max
+  if (+mn.value > +mx.value) mx.value = mn.value;
+  updateSalaryLabels();
+  renderResults();
+}
+
+function resetSalaryFilter() {
+  const mn = document.getElementById('salary-min-range');
+  const mx = document.getElementById('salary-max-range');
+  mn.value = 0;
+  mx.value = _salaryValues.length - 1;
+  updateSalaryLabels();
+  renderResults();
+}
+
+function applySalaryFilter(candidates) {
+  if (!_salaryValues.length) return candidates;
+  const mn = document.getElementById('salary-min-range');
+  const mx = document.getElementById('salary-max-range');
+  const minV = _salaryValues[+mn.value];
+  const maxV = _salaryValues[+mx.value];
+  if (minV == null || maxV == null) return candidates;
+  if (+mn.value === 0 && +mx.value === _salaryValues.length - 1) return candidates; // no filter active
+  return candidates.filter(r => {
+    const v = _parseSalaryNum(r);
+    if (v === null) return true; // no salary data — always show
+    return v >= minV && v <= maxV;
+  });
+}
+
 function renderResults() {
   const title = document.getElementById("results-title");
   title.textContent = state.roleTitle ? `Results — ${state.roleTitle}` : "Screening Results";
@@ -2062,11 +2148,17 @@ function renderResults() {
 
   document.getElementById("truncate-banner").style.display = state.truncated ? "" : "none";
 
+  // Salary filter: init sliders once data is available
+  initSalaryFilter(eligible);
+
   // Level 2: eligible candidates (with filter)
   let visible = eligible;
   if (state.currentFilter === "shortlisted") visible = eligible.filter(r => getDecision(r) === true);
   else if (state.currentFilter === "rejected") visible = eligible.filter(r => getDecision(r) === false);
   else if (state.currentFilter === "pending")  visible = eligible.filter(r => getDecision(r) == null);
+
+  // Apply salary range filter
+  visible = applySalaryFilter(visible);
 
   // Apply sort
   const sortVal = (document.getElementById("sort-select") || {}).value || "rank";
