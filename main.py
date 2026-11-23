@@ -916,7 +916,7 @@ def load_salary_from_manifest(service) -> dict:
             if "vnd.google-apps" in mime:
                 req = service.files().export_media(fileId=fid, mimeType="text/csv")
             else:
-                req = service.files().get_media(fileId=fid)
+                req = service.files().get_media(fileId=fid, supportsAllDrives=True)
             dl = _DL(buf, req)
             while True:
                 _, done = dl.next_chunk()
@@ -1004,7 +1004,7 @@ async def drive_salary_map_debug(qs_token: Optional[str] = Cookie(default=None))
             if "vnd.google-apps" in f.get("mimeType", ""):
                 req = service.files().export_media(fileId=f["id"], mimeType="text/csv")
             else:
-                req = service.files().get_media(fileId=f["id"])
+                req = service.files().get_media(fileId=f["id"], supportsAllDrives=True)
             dl = _DL(buf, req)
             while True:
                 _, done = dl.next_chunk()
@@ -1107,10 +1107,10 @@ async def drive_screen(body: DriveScreenBody, qs_token: Optional[str] = Cookie(d
 
     cvs = {}
     for fid in body.file_ids:
-        meta = service.files().get(fileId=fid, fields="id,name,mimeType").execute()
+        meta = service.files().get(fileId=fid, fields="id,name,mimeType", supportsAllDrives=True).execute()
         fname = meta.get("name", fid)
         buf = io.BytesIO()
-        request = service.files().get_media(fileId=fid)
+        request = service.files().get_media(fileId=fid, supportsAllDrives=True)
         downloader = MediaIoBaseDownload(buf, request)
         done = False
         while not done:
