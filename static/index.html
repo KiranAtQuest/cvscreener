@@ -517,16 +517,48 @@ textarea { min-height: 140px; line-height: 1.5; }
 }
 .progress-overlay.show { display: flex; }
 .progress-box {
-  background: #fff; border-radius: 16px; padding: 40px 48px;
-  text-align: center; max-width: 380px; width: 90%;
+  background: #fff; border-radius: 20px; padding: 32px 36px;
+  text-align: center; max-width: 320px; width: 90%;
+  box-shadow: 0 24px 64px rgba(0,0,0,.35);
 }
-.progress-box .pb-icon { font-size: 44px; margin-bottom: 16px; }
-.progress-box h3 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
-.progress-box p { font-size: 13px; color: var(--grey); line-height: 1.5; }
+.progress-box h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.progress-box p { font-size: 12px; color: var(--grey); line-height: 1.5; }
+
+/* CV Stack animation */
+.cvstack-anim {
+  position: relative; width: 80px; height: 72px; margin: 0 auto 16px;
+}
+.cv-paper {
+  position: absolute; width: 56px; height: 68px; border-radius: 6px;
+  border: 1.5px solid #d1d9e6; display: flex; flex-direction: column;
+  padding: 8px 7px; gap: 5px;
+}
+.cv-paper.p1 { left: 24px; top: 0; transform: rotate(8deg); background: #eef3f8; border-color: #c5d2e0; }
+.cv-paper.p2 { left: 12px; top: 2px; transform: rotate(3deg); background: #f4f7fb; }
+.cv-paper.p3 { left: 0; top: 4px; transform: rotate(-2deg); background: #fff;
+  animation: cvFloat 2s ease-in-out infinite; }
+.cv-line { height: 4px; border-radius: 2px; background: #dde3ec; }
+.cv-line.w80 { width: 80%; }
+.cv-line.w60 { width: 60%; }
+.cv-line.accent { width: 90%; background: var(--blue); opacity: .35; }
+@keyframes cvFloat {
+  0%,100% { transform: rotate(-2deg) translateY(0); }
+  50%      { transform: rotate(-2deg) translateY(-6px); }
+}
+.pb-tick {
+  position: absolute; right: -6px; bottom: -6px;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--green); border: 2px solid #fff;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 13px; font-weight: 700;
+  animation: tickPop .5s ease infinite alternate;
+}
+@keyframes tickPop { from { transform: scale(.88); } to { transform: scale(1.08); } }
+
 .pb-spinner {
-  width: 40px; height: 40px; border: 4px solid var(--blue-bg);
+  width: 36px; height: 36px; border: 3px solid var(--blue-bg);
   border-top-color: var(--blue); border-radius: 50%;
-  animation: spin .8s linear infinite; margin: 0 auto 20px;
+  animation: spin .8s linear infinite; margin: 0 auto 16px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fadeSlideIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
@@ -564,15 +596,25 @@ textarea { min-height: 140px; line-height: 1.5; }
 /* Candidate card */
 .cand-card {
   background: #fff; border-radius: var(--radius); border: 1.5px solid var(--border);
-  box-shadow: var(--shadow); cursor: pointer; overflow: hidden;
+  box-shadow: var(--shadow); cursor: pointer; overflow: hidden; position: relative;
   transition: transform .12s, box-shadow .12s, border-color .12s;
+  border-left: 5px solid var(--border);
 }
-.cand-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.1); border-color: #B8DCF0; }
-.cand-card.shortlisted { border-color: #A5D6A7; }
-.cand-card.rejected { border-color: #FFCDD2; }
-.cand-card.verdict-strong { border-left: 4px solid var(--green-light); }
-.cand-card.verdict-possible { border-left: 4px solid var(--orange); }
-.cand-card.verdict-weak { border-left: 4px solid var(--red); }
+.cand-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.1); }
+.cand-card.shortlisted { border-left-color: var(--green); border-color: #A5D6A7; border-left-color: var(--green); }
+.cand-card.rejected    { border-left-color: var(--danger-red); border-color: #FFCDD2; border-left-color: var(--danger-red); }
+.cand-card.verdict-strong   { border-left-color: var(--green-light); }
+.cand-card.verdict-possible { border-left-color: var(--orange); }
+.cand-card.verdict-weak     { border-left-color: var(--red); }
+
+/* Stamp badge (top-right corner of card) */
+.cc-stamp {
+  position: absolute; top: 10px; right: 10px;
+  font-size: 9px; font-weight: 700; padding: 3px 7px; border-radius: 4px;
+  text-transform: uppercase; letter-spacing: .05em; pointer-events: none;
+}
+.cc-stamp.sl { background: #dcfce7; color: var(--green); border: 1px solid #bbf7d0; }
+.cc-stamp.rj { background: #fee2e2; color: var(--danger-red); border: 1px solid #fecaca; }
 .cc-top { padding: 16px; display: flex; gap: 14px; align-items: flex-start; }
 .cc-ring { position: relative; flex-shrink: 0; }
 .cc-ring svg { display: block; }
@@ -1305,13 +1347,25 @@ textarea { min-height: 140px; line-height: 1.5; }
 <!-- ── Progress overlay ────────────────────────────────────────── -->
 <div class="progress-overlay" id="progress-overlay">
   <div class="progress-box">
-    <div class="pb-spinner"></div>
+    <!-- CV Stack animation (shown when screening CVs) -->
+    <div id="pb-cvstack" style="display:none">
+      <div class="cvstack-anim">
+        <div class="cv-paper p1"><div class="cv-line w80"></div><div class="cv-line w60"></div><div class="cv-line accent"></div><div class="cv-line w60"></div></div>
+        <div class="cv-paper p2"><div class="cv-line w80"></div><div class="cv-line w60"></div><div class="cv-line accent"></div><div class="cv-line w60"></div></div>
+        <div class="cv-paper p3"><div class="cv-line w80"></div><div class="cv-line w60"></div><div class="cv-line accent"></div><div class="cv-line w60"></div></div>
+        <div class="pb-tick">✓</div>
+      </div>
+      <div id="pb-cv-counter" style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:4px"></div>
+      <div id="pb-cv-name" style="font-size:11px;color:var(--grey);height:16px;overflow:hidden;margin-bottom:14px"></div>
+    </div>
+    <!-- Generic spinner (shown for PDF/Excel/other) -->
+    <div class="pb-spinner" id="pb-generic-spinner"></div>
     <h3 id="pb-title">Screening CVs…</h3>
     <p id="pb-msg">Claude is reading every CV against your job description. This may take a minute.</p>
-    <div id="pb-bar-wrap" style="display:none;margin-top:16px;background:#eef3f8;border-radius:8px;height:8px;overflow:hidden">
-      <div id="pb-bar" style="height:100%;background:var(--blue);border-radius:8px;width:0%;transition:width .4s"></div>
+    <div id="pb-bar-wrap" style="display:none;margin-top:12px;background:#eef3f8;border-radius:8px;height:6px;overflow:hidden">
+      <div id="pb-bar" style="height:100%;background:var(--blue);border-radius:8px;width:0%;transition:width .5s"></div>
     </div>
-    <div id="pb-detail" style="font-size:11px;color:var(--grey);margin-top:8px;display:none"></div>
+    <div id="pb-detail" style="font-size:11px;color:var(--grey);margin-top:6px;display:none"></div>
   </div>
 </div>
 
@@ -1857,12 +1911,25 @@ function showToast(msg, dur = 2200) {
   setTimeout(() => t.classList.remove("show"), dur);
 }
 
-function showProgress(title, msg) {
+function showProgress(title, msg, isCvScreen) {
   document.getElementById("pb-title").textContent = title;
   document.getElementById("pb-msg").textContent = msg;
+  const cvstack = document.getElementById("pb-cvstack");
+  const spinner = document.getElementById("pb-generic-spinner");
+  if (isCvScreen) {
+    cvstack.style.display = "";
+    spinner.style.display = "none";
+  } else {
+    cvstack.style.display = "none";
+    spinner.style.display = "";
+  }
   document.getElementById("progress-overlay").classList.add("show");
 }
-function hideProgress() { document.getElementById("progress-overlay").classList.remove("show"); }
+function hideProgress() {
+  document.getElementById("progress-overlay").classList.remove("show");
+  document.getElementById("pb-cv-counter").textContent = "";
+  document.getElementById("pb-cv-name").textContent = "";
+}
 
 // ── Screens ────────────────────────────────────────────────────────────────────
 function showScreen(id) {
@@ -2262,12 +2329,21 @@ function filterDriveByRole() {
 // ── Screen CVs ─────────────────────────────────────────────────────────────────
 const BATCH_SIZE = 25;
 
-function updateProgress(title, msg, batchDone, batchTotal, cvsDone) {
+function updateProgress(title, msg, batchDone, batchTotal, cvsDone, currentName) {
   document.getElementById("pb-title").textContent = title;
   document.getElementById("pb-msg").textContent = msg;
   const barWrap = document.getElementById("pb-bar-wrap");
   const bar     = document.getElementById("pb-bar");
   const detail  = document.getElementById("pb-detail");
+  const counter = document.getElementById("pb-cv-counter");
+  const nameEl  = document.getElementById("pb-cv-name");
+  if (cvsDone != null) {
+    const totalHint = batchTotal > 1 ? batchTotal * 25 : null;
+    counter.textContent = totalHint
+      ? `${cvsDone} of ~${totalHint} screened`
+      : `${cvsDone} screened`;
+  }
+  if (currentName) nameEl.textContent = `Reading: ${currentName}…`;
   if (batchTotal > 1) {
     barWrap.style.display = "";
     bar.style.width = `${Math.round((batchDone / batchTotal) * 100)}%`;
@@ -2304,7 +2380,8 @@ async function runDriveScreen(jd) {
   const numBatches = idBatches.length;
 
   showProgress("Screening CVs from Drive…",
-    `Fetching and screening ${totalFiles} CV${totalFiles>1?"s":""} from Google Drive.`);
+    `Fetching and screening ${totalFiles} CV${totalFiles>1?"s":""} from Google Drive.`, true);
+  document.getElementById("pb-cv-counter").textContent = `0 of ${totalFiles} screened`;
   if (numBatches > 1) updateProgress("Screening from Drive…", "", 0, numBatches);
 
   const allResults = [];
@@ -2339,10 +2416,15 @@ async function runDriveScreen(jd) {
       allResults.push(...(data.results || []));
       if (data.truncated) totalTruncated = true;
       if (b === 0) pastExamplesUsed = data.past_examples_used || 0;
+      // Update CV stack counter after each batch
+      const lastResult = (data.results || []).slice(-1)[0];
+      const lastName = lastResult ? (lastResult.name || lastResult.filename || "") : "";
+      document.getElementById("pb-cv-counter").textContent = `${allResults.length} of ${totalFiles} screened`;
+      if (lastName) document.getElementById("pb-cv-name").textContent = `✓ ${lastName}`;
       if (numBatches > 1) updateProgress(
         `Screening from Drive… (batch ${b+1} of ${numBatches})`,
         `Processing files ${Math.min((b+1)*25+1, totalFiles)}–${Math.min((b+2)*25, totalFiles)} of ${totalFiles}`,
-        b + 1, numBatches, allResults.length
+        b + 1, numBatches, allResults.length, lastName
       );
     }
 
@@ -2399,7 +2481,8 @@ async function runScreen() {
   const compStr   = state.competencies.join("\n");
 
   showProgress("Screening CVs…",
-    `Processing ${totalFiles} CV${totalFiles>1?"s":""} in ${numBatches} batch${numBatches>1?"es":""}.`);
+    `Processing ${totalFiles} CV${totalFiles>1?"s":""} in ${numBatches} batch${numBatches>1?"es":""}.`, true);
+  document.getElementById("pb-cv-counter").textContent = `0 of ${totalFiles} screened`;
   // Show bar immediately for multi-batch jobs
   if (numBatches > 1) updateProgress("Screening CVs…", "", 0, numBatches);
 
@@ -2688,13 +2771,19 @@ function candidateCardHTML(r, isFiltered, cardIdx) {
   const mapSalary = /^\d+$/.test(cid) ? (driveSalaryMap[cid] || '') : '';
   const displaySalary = r.current_salary || mapSalary;
 
+  const stampHtml = dec === true
+    ? `<div class="cc-stamp sl">✓ Shortlisted</div>`
+    : dec === false
+    ? `<div class="cc-stamp rj">✗ Rejected</div>`
+    : "";
   return `<div class="cand-card ${cardClass}" onclick="openDetail(${realIdx})" style="${isFiltered ? 'opacity:.7;' : ''}animation-delay:${delay}ms">
+    ${stampHtml}
     <div class="cc-top">
       <div class="cc-ring" style="width:58px;height:58px;position:relative">
         ${scoreRingSVG(sc, 58, b, "")}
       </div>
       <div class="cc-info">
-        <div class="cc-name">${r.name || r.filename || "—"}</div>
+        <div class="cc-name" style="${dec != null ? 'padding-right:80px' : ''}">${r.name || r.filename || "—"}</div>
         <div class="cc-role">${r.role || "—"}</div>
         <div class="cc-meta">
           ${r.years != null ? `<span>⏱ ${r.years} yrs</span>` : ""}
