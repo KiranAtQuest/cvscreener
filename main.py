@@ -1160,6 +1160,69 @@ async def drive_screen(body: DriveScreenBody, qs_token: Optional[str] = Cookie(d
     return {"results": results, "truncated": truncated, "past_examples_used": len(past_examples)}
 
 
+# ── Stats ──────────────────────────────────────────────────────────────────────
+@app.get("/api/stats")
+async def get_stats(user: dict = Depends(_auth.get_current_user)):
+    with _auth._conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT COUNT(*) AS total,
+                  COUNT(*) FILTER (WHERE final_decision='SHORTLIST') AS shortlisted,
+                  COUNT(*) FILTER (WHERE final_decision='MAYBE') AS maybe,
+                  COUNT(*) FILTER (WHERE final_decision='REJECT') AS rejected,
+                  ROUND(AVG(ai_score)::numeric, 1) AS avg_score,
+                  COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') AS last_7d,
+                  COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days') AS last_30d,
+                  COUNT(*) FILTER (WHERE created_at::date = CURRENT_DATE) AS today
+                FROM screening_examples
+            """)
+            totals = dict(cur.fetchone() or {})
+
+            cur.execute("""
+                SELECT role_title, COUNT(*) AS count
+                FROM screening_examples
+                GROUP BY role_title ORDER BY count DESC LIMIT 10
+            """)
+            by_role = [dict(r) for r in cur.fetchall()]
+
+            cur.execute("""
+                SELECT TO_CHAR(created_at::date,'YYYY-MM-DD') AS day, COUNT(*) AS count
+                FROM screening_examples
+                WHERE created_at >= NOW() - INTERVAL '14 days'
+                GROUP BY day ORDER BY day
+            """)
+            daily = [dict(r) for r in cur.fetchall()]
+
+            cur.execute("""
+                SELECT candidate_name, role_title, ai_score, final_decision, created_at
+                FROM screening_examples ORDER BY created_at DESC LIMIT 10
+            """)
+            recent = [dict(r) for r in cur.fetchall()]
+
+            cur.execute("SELECT COUNT(*) AS n FROM saved_jds")
+            jd_count = (cur.fetchone() or {}).get("n", 0)
+
+            cur.execute("""
+                SELECT created_by, COUNT(*) AS count
+                FROM screening_examples
+                GROUP BY created_by ORDER BY count DESC LIMIT 10
+            """)
+            by_user = [dict(r) for r in cur.fetchall()]
+
+    for row in recent:
+        if row.get("created_at"):
+            row["created_at"] = row["created_at"].isoformat()
+
+    return {
+        "totals": totals,
+        "by_role": by_role,
+        "daily": daily,
+        "recent": recent,
+        "jd_count": int(jd_count),
+        "by_user": by_user,
+    }
+
+
 # ── Serve frontend ─────────────────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
