@@ -896,6 +896,8 @@ def load_salary_from_manifest(service) -> dict:
             fields="files(id,name,createdTime,mimeType,parents)",
             orderBy="createdTime desc",
             pageSize=20,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
         ).execute()
         files = r.get("files", [])
         # Sort newest first
@@ -1066,6 +1068,8 @@ async def drive_list_files(
             fields="nextPageToken,files(id,name,createdTime,size,mimeType,parents)",
             orderBy="createdTime desc",
             pageSize=1000,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
         )
         if page_token:
             kwargs["pageToken"] = page_token
