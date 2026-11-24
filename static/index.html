@@ -2058,6 +2058,7 @@ function renderFileList() {
       <span>📄</span>
       <span class="fc-name">${f.name}</span>
       ${salary ? `<span style="font-size:11px;background:#E8F5E9;color:#2E7D32;padding:2px 7px;border-radius:4px;flex-shrink:0" title="Current salary from Zoho (as entered)">💰 ${salary}</span>` : ''}
+      ${f.manifest_date ? `<span style="font-size:11px;color:var(--grey);flex-shrink:0">${f.manifest_date}</span>` : ''}
       <span class="fc-size">${fmtSize(f.size)}</span>
       <button class="fc-del" onclick="removeFile(${i})">×</button>
     </div>`;

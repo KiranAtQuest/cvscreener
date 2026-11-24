@@ -1149,7 +1149,13 @@ async def drive_list_files(
                 pass
         return None  # No manifest entry → exclude from date-filtered results
 
-    files = [f for f in cv_files if file_date(f) is not None and from_dt.date() <= file_date(f) <= to_dt.date()]
+    in_range = []
+    for f in cv_files:
+        d = file_date(f)
+        if d is not None and from_dt.date() <= d <= to_dt.date():
+            f["manifest_date"] = d.isoformat()
+            in_range.append(f)
+    files = in_range
     print(f"[drive/files] total={len(all_files)} cv_files={len(cv_files)} in_range={len(files)}")
     return {"files": files, "from_date": from_date, "to_date": to_date,
             "count": len(files), "total_in_folder": len(all_files)}
